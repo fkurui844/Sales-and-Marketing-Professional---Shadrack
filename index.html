@@ -245,6 +245,8 @@
     .service-card.add-card:hover .add-icon { color: var(--gold); }
     .add-label { font-size: 0.8rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); transition: color 0.3s; }
     .service-card.add-card:hover .add-label { color: var(--gold); }
+    .service-card.add-card { display: none; }
+    .service-card.add-card.unlocked { display: flex; }
 
     /* ── PROCESS ── */
     #process { background: var(--navy-mid); }
@@ -567,7 +569,7 @@
         </div>
         <div class="contact-detail">
           <span class="contact-detail-icon">✉️</span>
-          <span class="contact-detail-text">your.email@example.com</span>
+          <span class="contact-detail-text"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="91e8fee4e3bff4fcf0f8fdd1f4e9f0fce1fdf4bff2fefc">[email&#160;protected]</a></span>
         </div>
         <div class="contact-detail">
           <span class="contact-detail-icon">📞</span>
@@ -632,9 +634,33 @@
     </div>
   </div>
 
-  <script>
+  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
     // ── Year
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    // ── Secret unlock: 5 double-clicks on "Professional" in nav logo
+    (function () {
+      const logo = document.querySelector('.nav-logo');
+      // Wrap "Professional" in a secret span
+      logo.innerHTML = logo.innerHTML.replace('Professional', '<span id="secretTrigger" style="cursor:default">Professional</span>');
+      let taps = 0;
+      let resetTimer;
+      document.getElementById('secretTrigger').addEventListener('dblclick', function (e) {
+        e.preventDefault();
+        taps++;
+        clearTimeout(resetTimer);
+        resetTimer = setTimeout(() => { taps = 0; }, 4000);
+        if (taps >= 5) {
+          taps = 0;
+          const addCard = document.querySelector('.add-card');
+          addCard.classList.add('unlocked');
+          // Brief gold flash on logo to confirm unlock
+          logo.style.transition = 'color 0.2s';
+          logo.style.color = '#fff';
+          setTimeout(() => { logo.style.color = ''; }, 400);
+        }
+      });
+    })();
 
     // ── Nav toggle
     function toggleNav() {
@@ -695,11 +721,4 @@
       closeModal();
     }
 
-    // ── Smooth nav shrink on scroll
-    window.addEventListener('scroll', () => {
-      const nav = document.getElementById('mainNav');
-      nav.style.padding = window.scrollY > 80 ? '0.8rem 4rem' : '1.25rem 4rem';
-    });
-  </script>
-</body>
-</html>
+    // ── Smooth nav
