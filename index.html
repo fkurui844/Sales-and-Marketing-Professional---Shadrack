@@ -578,6 +578,13 @@
       <span class="toggle-icon moon">🌙</span>
       <span class="toggle-icon sun">☀️</span>
     </button>
+    <!-- Sync pulse: invisible dot that briefly shows when cloud data lands -->
+    <span id="syncPulse" title="Content updated from cloud" style="
+      width:7px;height:7px;border-radius:50%;
+      background:var(--gold);flex-shrink:0;
+      opacity:0;transition:opacity 0.5s ease;
+      margin-left:0.5rem;
+    "></span>
   </nav>
 
   <!-- HERO -->
@@ -930,6 +937,7 @@
           <div style="display:flex;gap:0.8rem;margin-top:1.2rem;align-items:center;flex-wrap:wrap;">
             <button class="btn-save" onclick="saveDbUrl()" style="min-width:140px;">Connect &amp; Sync</button>
             <button class="btn-cancel" onclick="testDbConnection()">Test Connection</button>
+            <button class="btn-cancel" onclick="forceSyncNow()">↻ Sync Now</button>
             <button class="btn-cancel" onclick="disconnectCloud()" style="color:#e05c5c;border-color:rgba(224,92,92,0.4);">Disconnect</button>
           </div>
           <p id="dbStatus" style="font-size:0.85rem;font-weight:500;margin-top:1rem;min-height:1.4em;"></p>
@@ -1362,25 +1370,31 @@
       } catch(e) {}
     }
 
+    // Firebase stores arrays as objects {0:{...},1:{...}} — convert back
+    function toArray(v) {
+      if (!v) return [];
+      if (Array.isArray(v)) return v;
+      return Object.values(v);
+    }
+
     async function loadFromCloud() {
       const url = getDbUrl();
       if (!url) return;
       try {
-        // Fetch all data in one round-trip
-        const res = await fetch(`${url}/soluken.json`);
+        const res = await fetch(`${url}/soluken.json?ts=${Date.now()}`);
         if (!res.ok) return;
         const all = await res.json();
         if (!all) return;
         let changed = false;
-        if (all.services !== undefined && all.services !== null) {
-          localStorage.setItem(SERVICES_KEY, JSON.stringify(all.services));
+        if (all.services != null) {
+          localStorage.setItem(SERVICES_KEY, JSON.stringify(toArray(all.services)));
           changed = true;
         }
-        if (all.projects !== undefined && all.projects !== null) {
-          localStorage.setItem(PROJECTS_KEY, JSON.stringify(all.projects));
+        if (all.projects != null) {
+          localStorage.setItem(PROJECTS_KEY, JSON.stringify(toArray(all.projects)));
           changed = true;
         }
-        if (all.settings !== undefined && all.settings !== null) {
+        if (all.settings != null) {
           localStorage.setItem(SETTINGS_KEY, JSON.stringify(all.settings));
           changed = true;
         }
@@ -1388,8 +1402,28 @@
           renderServicesSection();
           renderProjectsSection();
           applySettings();
+          showSyncPulse();
         }
       } catch(e) { console.warn('Cloud sync load error:', e); }
+    }
+
+    // Show a brief "synced" pulse to confirm fresh data landed
+    function showSyncPulse() {
+      const el = document.getElementById('syncPulse');
+      if (!el) return;
+      el.style.opacity = '1';
+      setTimeout(() => { el.style.opacity = '0'; }, 2000);
+    }
+
+    // Poll for updates every 30 seconds while page is open
+    let syncInterval = null;
+    function startSyncPolling() {
+      if (syncInterval) clearInterval(syncInterval);
+      if (!getDbUrl()) return;
+      syncInterval = setInterval(loadFromCloud, 30000);
+    }
+    function stopSyncPolling() {
+      if (syncInterval) clearInterval(syncInterval);
     }
 
     function updateDbStatus() {
@@ -1409,9 +1443,21 @@
       if (input && !input.value) input.value = url;
     }
 
+
+    async function forceSyncNow() {
+      const statusEl = document.getElementById('dbStatus');
+      if (statusEl) { statusEl.textContent = 'Syncing…'; statusEl.style.color = 'var(--gold)'; }
+      await loadFromCloud();
+      if (statusEl) {
+        statusEl.textContent = '● Synced at ' + new Date().toLocaleTimeString();
+        statusEl.style.color = '#4caf82';
+      }
+    }
+
     function disconnectCloud() {
       if (!confirm('Disconnect cloud sync? Changes will only be saved locally.')) return;
       localStorage.removeItem(DB_URL_KEY);
+      stopSyncPolling();
       const input = document.getElementById('setDbUrl');
       if (input) input.value = '';
       updateDbStatus();
@@ -1445,6 +1491,7 @@
         if (Object.keys(settings).length) cloudSet('settings', settings);
         // Then pull cloud data (cloud wins)
         await loadFromCloud();
+        startSyncPolling();
         if (typeof loadSettingsForm === 'function') loadSettingsForm();
       } catch(e) {
         statusEl.textContent = '✗ Cannot reach database — check URL & rules';
@@ -1497,7 +1544,7 @@
       renderServicesSection();
       renderProjectsSection();
       applySettings();
-      loadFromCloud(); // pull shared data for all visitors
+      loadFromCloud().then(startSyncPolling); // pull shared data + begin polling
     });
     document.getElementById('year').textContent = new Date().getFullYear();
 
