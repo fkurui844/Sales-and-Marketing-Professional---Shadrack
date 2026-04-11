@@ -762,6 +762,16 @@
     </div>
   </div>
 
+  <script>
+    // ── Theme toggle (day / night) — defined early so button onclick always works
+    function toggleTheme() {
+      const isDay = document.body.classList.toggle('day-mode');
+      localStorage.setItem('theme', isDay ? 'day' : 'night');
+    }
+    if (localStorage.getItem('theme') === 'day') {
+      document.body.classList.add('day-mode');
+    }
+  </script>
   <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
     // ── Year
     document.getElementById('year').textContent = new Date().getFullYear();
@@ -857,13 +867,6 @@
     }
 
     // ── Smooth nav
-
-    // ── Theme toggle (day / night)
-    function toggleTheme() {
-      const isDay = document.body.classList.toggle('day-mode');
-      localStorage.setItem('theme', isDay ? 'day' : 'night');
-    }
-    // Restore saved preference
-    if (localStorage.getItem('theme') === 'day') {
-      document.body.classList.add('day-mode');
-    }
+  </script>
+</body>
+</html>
