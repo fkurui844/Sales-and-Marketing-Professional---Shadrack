@@ -529,7 +529,7 @@
       <h2 style="font-family:'Cormorant Garamond',serif; font-size:clamp(2.2rem,5vw,3.4rem); font-weight:300; color:var(--cream); letter-spacing:0.04em; margin-bottom:0.6rem;">
         What We <em style="font-style:italic; color:var(--gold-light);">Deliver</em>
       </h2>
-      <p style="font-size:0.78rem; letter-spacing:0.22em; text-transform:uppercase; color:var(--gold); font-weight:500;">
+      <p id="siteTagline" style="font-size:0.78rem; letter-spacing:0.22em; text-transform:uppercase; color:var(--gold); font-weight:500;">
         Full-Spectrum Strategic Marketing &amp; Business Consultancy
       </p>
       <div style="width:50px; height:1px; background:var(--gold); margin:1.5rem auto 0;"></div>
@@ -634,15 +634,15 @@
         </p>
         <div class="contact-detail">
           <span class="contact-detail-icon">📍</span>
-          <span class="contact-detail-text">Nairobi, Kenya</span>
+          <span class="contact-detail-text" id="contactLocation">Nairobi, Kenya</span>
         </div>
         <div class="contact-detail">
           <span class="contact-detail-icon">✉️</span>
-          <span class="contact-detail-text"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="91e8fee4e3bff4fcf0f8fdd1f4e9f0fce1fdf4bff2fefc">[email&#160;protected]</a></span>
+          <span class="contact-detail-text" id="contactEmail"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="91e8fee4e3bff4fcf0f8fdd1f4e9f0fce1fdf4bff2fefc">[email&#160;protected]</a></span>
         </div>
         <div class="contact-detail">
           <span class="contact-detail-icon">📞</span>
-          <span class="contact-detail-text">+254 700 000 000</span>
+          <span class="contact-detail-text" id="contactPhone">+254 700 000 000</span>
         </div>
       </div>
       <form class="contact-form reveal" onsubmit="handleSubmit(event)">
@@ -1071,11 +1071,49 @@
       };
       localStorage.setItem(SETTINGS_KEY,JSON.stringify(s));
       if(newPw) localStorage.setItem(ADMIN_PW_KEY,newPw);
-      // Apply settings live
-      if(s.companyName){ document.querySelectorAll('.nav-logo,.footer-logo').forEach(el=>el.textContent=s.companyName); }
-      if(s.phone){ const el=document.querySelector('.contact-detail-text[data-phone]'); if(el) el.textContent=s.phone; }
+      applySettings(s);
       document.getElementById('settingsSaved').style.display='block';
       setTimeout(()=>document.getElementById('settingsSaved').style.display='none',3000);
+    }
+
+    function applySettings(s){
+      if(!s) s=getSettings();
+
+      // Company name — update nav logo carefully to preserve the #secretWord span
+      if(s.companyName){
+        const span=document.getElementById('secretWord');
+        // Extract just the "Soluken" part from companyName (first word) for the secret trigger
+        const parts=s.companyName.split(' ');
+        if(span){ span.textContent=parts[0]; }
+        // Update the rest of the logo text (text node after the span)
+        const logo=document.querySelector('.nav-logo');
+        if(logo){
+          // Remove all text nodes, keep the span
+          Array.from(logo.childNodes).forEach(n=>{ if(n.nodeType===3) n.remove(); });
+          logo.appendChild(document.createTextNode(' '+parts.slice(1).join(' ')));
+        }
+        // Footer logo
+        const footerLogo=document.querySelector('.footer-logo');
+        if(footerLogo) footerLogo.textContent=s.companyName;
+      }
+
+      // Tagline
+      if(s.tagline){
+        const tl=document.getElementById('siteTagline');
+        if(tl) tl.textContent=s.tagline;
+      }
+
+      // Email
+      if(s.email){
+        const el=document.getElementById('contactEmail');
+        if(el) el.innerHTML=`<a href="mailto:${escHtml(s.email)}" style="color:inherit;text-decoration:none;">${escHtml(s.email)}</a>`;
+      }
+
+      // Phone
+      if(s.phone){
+        const el=document.getElementById('contactPhone');
+        if(el) el.textContent=s.phone;
+      }
     }
 
     function resetAllData(){
@@ -1098,14 +1136,6 @@
       renderProjectsSection();
       applySettings();
     });
-
-    function applySettings(){
-      const s=getSettings();
-      if(s.companyName) document.querySelectorAll('.nav-logo,.footer-logo').forEach(el=>el.textContent=s.companyName);
-      if(s.phone){ const el=document.querySelector('.contact-detail-text[data-phone]'); if(el) el.textContent=s.phone; }
-    }
-
-    // ── Year
     document.getElementById('year').textContent = new Date().getFullYear();
 
     // ── Nav toggle
