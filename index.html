@@ -790,6 +790,7 @@
         <button class="adm-tab active" onclick="switchTab('services',this)">⚙️ Services</button>
         <button class="adm-tab" onclick="switchTab('projects',this)">📁 Projects</button>
         <button class="adm-tab" onclick="switchTab('settings',this)">🔧 Settings</button>
+        <button class="adm-tab" onclick="switchTab('sync',this)">☁ Cloud Sync</button>
       </div>
 
       <!-- SERVICES TAB -->
@@ -889,8 +890,52 @@
           <button class="btn-save" onclick="saveSettings()">Save Settings</button>
           <button class="btn-cancel" style="color:#e05c5c;border-color:#e05c5c;" onclick="resetAllData()">Reset All Data</button>
         </div>
-        <p id="settingsSaved" style="color:#4caf82;font-size:0.82rem;margin-top:0.8rem;display:none;">✓ Settings saved successfully.</p>
+        <p id="settingsSaved" style="color:#4caf82;font-size:0.82rem;margin-top:0.8rem;display:none;">✓ Settings saved and synced to cloud.</p>
+
       </div>
+
+      <!-- CLOUD SYNC TAB -->
+      <div id="tab-sync" class="adm-tab-content" style="display:none;">
+        <div class="adm-section-bar">
+          <h3 class="adm-section-title">☁ Cloud Sync</h3>
+          <span id="dbStatusBadge" style="font-size:0.82rem;font-weight:600;padding:0.3rem 0.9rem;border-radius:20px;background:var(--navy-light);color:var(--muted);"></span>
+        </div>
+
+        <div style="background:var(--navy-mid);border:1px solid var(--divider);border-radius:6px;padding:1.8rem;margin-bottom:1.5rem;">
+          <p style="font-size:0.95rem;color:var(--cream-dim);line-height:1.8;margin-bottom:1.2rem;">
+            Connect a free <strong style="color:var(--cream);">Firebase Realtime Database</strong> to make every change you save — services, projects, and settings — instantly visible to <em>anyone</em> who opens this link, on any device.
+          </p>
+          <div style="display:flex;flex-direction:column;gap:0.6rem;font-size:0.82rem;color:var(--muted);line-height:1.7;">
+            <span>① Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:none;font-weight:500;">console.firebase.google.com</a> → Create a project (free)</span>
+            <span>② Build → Realtime Database → Create Database → choose <em>Test mode</em></span>
+            <span>③ Copy the database URL (looks like <code style="background:var(--navy-light);padding:1px 6px;border-radius:3px;font-size:0.78rem;">https://your-app-rtdb.firebaseio.com</code>)</span>
+            <span>④ Paste it below and click <strong style="color:var(--cream-dim);">Connect & Sync</strong></span>
+          </div>
+        </div>
+
+        <div class="adm-form">
+          <p class="adm-form-title">Database Connection</p>
+          <div class="form-group">
+            <label class="form-label">Firebase Database URL</label>
+            <input type="url" class="form-input" id="setDbUrl"
+              placeholder="https://your-app-default-rtdb.firebaseio.com"
+              style="font-family:monospace;font-size:0.85rem;" />
+          </div>
+          <div style="display:flex;gap:0.8rem;margin-top:1.2rem;align-items:center;flex-wrap:wrap;">
+            <button class="btn-save" onclick="saveDbUrl()" style="min-width:140px;">Connect &amp; Sync</button>
+            <button class="btn-cancel" onclick="testDbConnection()">Test Connection</button>
+            <button class="btn-cancel" onclick="disconnectCloud()" style="color:#e05c5c;border-color:rgba(224,92,92,0.4);">Disconnect</button>
+          </div>
+          <p id="dbStatus" style="font-size:0.85rem;font-weight:500;margin-top:1rem;min-height:1.4em;"></p>
+        </div>
+
+        <div style="margin-top:1.5rem;padding:1.2rem;background:var(--gold-pale);border:1px solid var(--divider);border-radius:4px;">
+          <p style="font-size:0.78rem;color:var(--muted);line-height:1.7;">
+            <strong style="color:var(--cream-dim);">How it works:</strong> Once connected, every Save action in Services, Projects, and Settings is pushed to Firebase immediately. Visitors load the latest data when they open the link. Each device connects once — the URL is saved locally. The admin password is <em>never</em> synced for security.
+          </p>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -925,6 +970,7 @@
     // ══════════════════════════════════════════
 
     const ADMIN_PW_KEY   = 'soluken_admin_pw';
+    const DB_URL_KEY     = 'soluken_db_url';
     const SERVICES_KEY   = 'soluken_services';
     const PROJECTS_KEY   = 'soluken_projects';
     const SETTINGS_KEY   = 'soluken_settings';
@@ -957,8 +1003,8 @@
     function getServices()  { try { return JSON.parse(localStorage.getItem(SERVICES_KEY)) || []; } catch(e){ return []; } }
     function getProjects()  { try { return JSON.parse(localStorage.getItem(PROJECTS_KEY)) || []; } catch(e){ return []; } }
     function getSettings()  { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch(e){ return {}; } }
-    function saveServices(d){ localStorage.setItem(SERVICES_KEY, JSON.stringify(d)); }
-    function saveProjects(d){ localStorage.setItem(PROJECTS_KEY, JSON.stringify(d)); }
+    function saveServices(d){ localStorage.setItem(SERVICES_KEY, JSON.stringify(d)); cloudSet('services', d); }
+    function saveProjects(d){ localStorage.setItem(PROJECTS_KEY, JSON.stringify(d)); cloudSet('projects', d); }
     function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
     // ── Login ──
@@ -998,6 +1044,8 @@
       document.querySelectorAll('.adm-tab').forEach(t=>t.classList.remove('active'));
       document.getElementById('tab-'+name).style.display='block';
       btn.classList.add('active');
+      if (name === 'sync') updateDbStatus();
+      if (name === 'settings') loadSettingsForm();
     }
 
     // ══ DEFAULT SERVICES (shown if no saved data) ══
@@ -1186,6 +1234,9 @@
       document.getElementById('setEmail').value=s.email||'';
       document.getElementById('setPhone').value=s.phone||'';
       document.getElementById('setNewPw').value='';
+      const dbInput=document.getElementById('setDbUrl');
+      if(dbInput) dbInput.value=localStorage.getItem(DB_URL_KEY)||'';
+      updateDbStatus();
     }
 
     function saveSettings(){
@@ -1198,9 +1249,12 @@
       };
       localStorage.setItem(SETTINGS_KEY,JSON.stringify(s));
       if(newPw) localStorage.setItem(ADMIN_PW_KEY,newPw);
+      cloudSet('settings', s);
       applySettings(s);
-      document.getElementById('settingsSaved').style.display='block';
-      setTimeout(()=>document.getElementById('settingsSaved').style.display='none',3000);
+      const saved = document.getElementById('settingsSaved');
+      saved.textContent = '✓ Settings saved and synced to cloud.';
+      saved.style.display='block';
+      setTimeout(()=>saved.style.display='none',3500);
     }
 
     function applySettings(s){
@@ -1239,15 +1293,162 @@
       }
     }
 
-    function resetAllData(){
-      if(!confirm('This will delete ALL custom services, projects and settings. Are you sure?')) return;
+    async function resetAllData(){
+      if(!confirm('This will delete ALL custom services, projects and settings for ALL users. Are you sure?')) return;
       [SERVICES_KEY,PROJECTS_KEY,SETTINGS_KEY].forEach(k=>localStorage.removeItem(k));
+      await Promise.all([cloudDelete('services'), cloudDelete('projects'), cloudDelete('settings')]);
       renderServicesSection();
       renderProjectsSection();
       renderAdminServices();
       renderAdminProjects();
       loadSettingsForm();
-      alert('All data has been reset.');
+      alert('All data has been reset across all users.');
+    }
+
+
+    // ══════════════════════════════════════════
+    //  CLOUD SYNC — Firebase Realtime Database
+    // ══════════════════════════════════════════
+
+    function getDbUrl() {
+      return (localStorage.getItem(DB_URL_KEY) || '').replace(/\/$/, '');
+    }
+
+    async function cloudGet(key) {
+      const url = getDbUrl();
+      if (!url) return null;
+      try {
+        const res = await fetch(`${url}/soluken/${key}.json`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data; // null if empty node
+      } catch(e) { return null; }
+    }
+
+    async function cloudSet(key, data) {
+      const url = getDbUrl();
+      if (!url) return;
+      try {
+        await fetch(`${url}/soluken/${key}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+      } catch(e) { console.warn('Cloud sync write error:', e); }
+    }
+
+    async function cloudDelete(key) {
+      const url = getDbUrl();
+      if (!url) return;
+      try {
+        await fetch(`${url}/soluken/${key}.json`, { method: 'DELETE' });
+      } catch(e) {}
+    }
+
+    async function loadFromCloud() {
+      const url = getDbUrl();
+      if (!url) return;
+      try {
+        // Fetch all data in one round-trip
+        const res = await fetch(`${url}/soluken.json`);
+        if (!res.ok) return;
+        const all = await res.json();
+        if (!all) return;
+        let changed = false;
+        if (all.services !== undefined && all.services !== null) {
+          localStorage.setItem(SERVICES_KEY, JSON.stringify(all.services));
+          changed = true;
+        }
+        if (all.projects !== undefined && all.projects !== null) {
+          localStorage.setItem(PROJECTS_KEY, JSON.stringify(all.projects));
+          changed = true;
+        }
+        if (all.settings !== undefined && all.settings !== null) {
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(all.settings));
+          changed = true;
+        }
+        if (changed) {
+          renderServicesSection();
+          renderProjectsSection();
+          applySettings();
+        }
+      } catch(e) { console.warn('Cloud sync load error:', e); }
+    }
+
+    function updateDbStatus() {
+      const el = document.getElementById('dbStatus');
+      const badge = document.getElementById('dbStatusBadge');
+      const url = getDbUrl();
+      if (el) {
+        el.textContent = url ? '● Connected to ' + url : '○ Not connected — changes are device-only';
+        el.style.color = url ? '#4caf82' : 'var(--muted)';
+      }
+      if (badge) {
+        badge.textContent = url ? '● Live' : '○ Local only';
+        badge.style.color = url ? '#4caf82' : 'var(--muted)';
+        badge.style.background = url ? 'rgba(76,175,130,0.12)' : 'var(--navy-light)';
+      }
+      const input = document.getElementById('setDbUrl');
+      if (input && !input.value) input.value = url;
+    }
+
+    function disconnectCloud() {
+      if (!confirm('Disconnect cloud sync? Changes will only be saved locally.')) return;
+      localStorage.removeItem(DB_URL_KEY);
+      const input = document.getElementById('setDbUrl');
+      if (input) input.value = '';
+      updateDbStatus();
+    }
+
+    async function saveDbUrl() {
+      const input = document.getElementById('setDbUrl');
+      const url = (input.value || '').trim().replace(/\/$/, '');
+      const statusEl = document.getElementById('dbStatus');
+      if (!url) {
+        localStorage.removeItem(DB_URL_KEY);
+        statusEl.textContent = '○ Disconnected';
+        statusEl.style.color = 'var(--muted)';
+        return;
+      }
+      // Test connection first
+      statusEl.textContent = 'Connecting…';
+      statusEl.style.color = 'var(--gold)';
+      try {
+        const res = await fetch(`${url}/soluken.json`);
+        if (!res.ok) throw new Error('Bad response: ' + res.status);
+        localStorage.setItem(DB_URL_KEY, url);
+        statusEl.textContent = '● Connected';
+        statusEl.style.color = '#4caf82';
+        // Push current local data to cloud so it's available to others
+        const services = getServices();
+        const projects = getProjects();
+        const settings = getSettings();
+        if (services.length) cloudSet('services', services);
+        if (projects.length) cloudSet('projects', projects);
+        if (Object.keys(settings).length) cloudSet('settings', settings);
+        // Then pull cloud data (cloud wins)
+        await loadFromCloud();
+        if (typeof loadSettingsForm === 'function') loadSettingsForm();
+      } catch(e) {
+        statusEl.textContent = '✗ Cannot reach database — check URL & rules';
+        statusEl.style.color = '#e05c5c';
+      }
+    }
+
+    async function testDbConnection() {
+      const input = document.getElementById('setDbUrl');
+      const url = ((input && input.value) || getDbUrl() || '').trim().replace(/\/$/, '');
+      const statusEl = document.getElementById('dbStatus');
+      if (!url) { statusEl.textContent = 'Enter a URL first'; statusEl.style.color = '#e05c5c'; return; }
+      statusEl.textContent = 'Testing…'; statusEl.style.color = 'var(--gold)';
+      try {
+        const res = await fetch(`${url}/soluken.json`);
+        statusEl.textContent = res.ok ? '● Reachable ✓' : `✗ HTTP ${res.status}`;
+        statusEl.style.color = res.ok ? '#4caf82' : '#e05c5c';
+      } catch(e) {
+        statusEl.textContent = '✗ Cannot reach — check URL & Firebase rules';
+        statusEl.style.color = '#e05c5c';
+      }
     }
 
     // ── Utility ──
@@ -1258,6 +1459,7 @@
       renderServicesSection();
       renderProjectsSection();
       applySettings();
+      loadFromCloud(); // pull shared data for all visitors
     });
     document.getElementById('year').textContent = new Date().getFullYear();
 
