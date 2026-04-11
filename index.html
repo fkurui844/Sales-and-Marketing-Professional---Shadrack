@@ -790,7 +790,7 @@
         <button class="adm-tab active" onclick="switchTab('services',this)">⚙️ Services</button>
         <button class="adm-tab" onclick="switchTab('projects',this)">📁 Projects</button>
         <button class="adm-tab" onclick="switchTab('settings',this)">🔧 Settings</button>
-        <button class="adm-tab" onclick="switchTab('sync',this)">☁ Cloud Sync</button>
+        <button id="devSyncTab" class="adm-tab" onclick="switchTab('sync',this)" style="display:none;">☁ Cloud Sync</button>
       </div>
 
       <!-- SERVICES TAB -->
@@ -892,6 +892,12 @@
         </div>
         <p id="settingsSaved" style="color:#4caf82;font-size:0.82rem;margin-top:0.8rem;display:none;">✓ Settings saved and synced to cloud.</p>
 
+        <!-- Developer access — intentionally subtle -->
+        <div style="margin-top:3rem;text-align:right;">
+          <span id="devAccessTrigger" onclick="promptDevAccess()"
+            style="font-size:0.68rem;color:var(--divider);cursor:default;letter-spacing:0.08em;user-select:none;"
+            title="">v2.0</span>
+        </div>
       </div>
 
       <!-- CLOUD SYNC TAB -->
@@ -975,6 +981,7 @@
     const PROJECTS_KEY   = 'soluken_projects';
     const SETTINGS_KEY   = 'soluken_settings';
     const DEFAULT_PW     = 'Soluken2026';
+    const DEV_PW         = 'SolukenDev2026';
 
     // ── Secret trigger: click the logo image 6 times within 8 seconds ──
     (function () {
@@ -1035,6 +1042,16 @@
     function closeAdminPanel(){
       adminModeActive = false;
       document.getElementById('adminPanel').style.display='none';
+      // Re-hide the developer sync tab for the next session
+      const devTab = document.getElementById('devSyncTab');
+      if (devTab) devTab.style.display = 'none';
+      // Reset tabs back to Services for next open
+      document.querySelectorAll('.adm-tab-content').forEach(t => t.style.display = 'none');
+      document.querySelectorAll('.adm-tab').forEach(t => t.classList.remove('active'));
+      const firstTab = document.getElementById('tab-services');
+      const firstBtn = document.querySelector('.adm-tab');
+      if (firstTab) firstTab.style.display = 'block';
+      if (firstBtn) firstBtn.classList.add('active');
       renderServicesSection(); // re-render without admin overlays
     }
 
@@ -1448,6 +1465,27 @@
       } catch(e) {
         statusEl.textContent = '✗ Cannot reach — check URL & Firebase rules';
         statusEl.style.color = '#e05c5c';
+      }
+    }
+
+
+    // ── Developer Access ──
+    function promptDevAccess() {
+      const pw = prompt('Developer access code:');
+      if (pw === null) return;
+      if (pw === DEV_PW) {
+        const tab = document.getElementById('devSyncTab');
+        if (tab) {
+          tab.style.display = '';
+          // Auto-switch to it
+          document.querySelectorAll('.adm-tab-content').forEach(t => t.style.display = 'none');
+          document.querySelectorAll('.adm-tab').forEach(t => t.classList.remove('active'));
+          document.getElementById('tab-sync').style.display = 'block';
+          tab.classList.add('active');
+          updateDbStatus();
+        }
+      } else {
+        // No visible error — just silently ignore wrong attempts
       }
     }
 
