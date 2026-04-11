@@ -809,10 +809,12 @@
     const SETTINGS_KEY   = 'soluken_settings';
     const DEFAULT_PW     = 'Soluken2026';
 
-    // ── Secret trigger: click "Soluken" in nav logo 6 times within 8 seconds ──
+    // ── Secret trigger: click the logo image 6 times within 8 seconds ──
     (function () {
       let clicks = 0, resetTimer;
-      const trigger = document.getElementById('secretWord');
+      const trigger = document.querySelector('.nav-logo img');
+      if (!trigger) return;
+      trigger.style.cursor = 'default';
       trigger.addEventListener('click', function (e) {
         e.preventDefault();
         clicks++;
@@ -820,10 +822,10 @@
         resetTimer = setTimeout(() => { clicks = 0; }, 8000);
         if (clicks >= 6) {
           clicks = 0;
-          // Subtle gold flash to confirm
-          trigger.style.transition = 'color 0.15s';
-          trigger.style.color = '#fff';
-          setTimeout(() => { trigger.style.color = ''; }, 300);
+          // Subtle flash on the logo to confirm
+          trigger.style.transition = 'opacity 0.15s';
+          trigger.style.opacity = '0.5';
+          setTimeout(() => { trigger.style.opacity = ''; }, 300);
           openAdminLogin();
         }
       });
