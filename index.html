@@ -507,6 +507,7 @@
     <ul class="nav-links" id="navLinks">
       <li><a href="#about">About</a></li>
       <li><a href="#services">Services</a></li>
+      <li><a href="#projects">Projects</a></li>
       <li><a href="#process">My Approach</a></li>
       <li><a href="#contact" class="nav-cta">Get In Touch</a></li>
     </ul>
@@ -595,6 +596,17 @@
       <div style="width:50px; height:1px; background:var(--gold); margin:1.5rem auto 0;"></div>
     </div>
     <div id="servicesGrid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:2.5rem; max-width:1100px; margin:0 auto;"></div>
+  </section>
+
+  <!-- PROJECTS -->
+  <section id="projects" style="background:var(--navy-mid);">
+    <div class="section-header reveal">
+      <p class="section-tag">Our Work</p>
+      <h2 class="section-title">Featured <em>Projects</em></h2>
+      <div class="section-divider"></div>
+    </div>
+    <div id="projectsGrid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:2rem; max-width:1100px; margin:0 auto;"></div>
+    <p id="projectsEmpty" style="text-align:center;color:var(--muted);font-size:0.9rem;letter-spacing:0.08em;margin-top:2rem;display:none;">Projects coming soon.</p>
   </section>
 
   <!-- PROCESS / APPROACH -->
@@ -690,6 +702,7 @@
     <div class="footer-links">
       <a href="#home">Home</a>
       <a href="#services">Services</a>
+      <a href="#projects">Projects</a>
       <a href="#contact">Contact</a>
     </div>
   </footer>
@@ -741,9 +754,15 @@
 
     function renderProjectsSection(){
       const projects=getProjects();
-      const section=document.getElementById('projects');
       const grid=document.getElementById('projectsGrid');
-      section.style.display = projects.length ? 'block' : 'none';
+      const empty=document.getElementById('projectsEmpty');
+      if(!grid) return;
+      if(!projects.length){
+        grid.innerHTML='';
+        if(empty) empty.style.display='block';
+        return;
+      }
+      if(empty) empty.style.display='none';
       grid.innerHTML=projects.map(p=>`
         <div style="background:var(--navy);border:1px solid var(--divider);padding:2rem;border-radius:2px;transition:border-color 0.3s;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--divider)'">
           ${p.tag?`<span style="font-size:0.7rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);font-weight:500;">${escHtml(p.tag)}</span>`:''}
