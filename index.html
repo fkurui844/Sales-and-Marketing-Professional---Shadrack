@@ -1517,5 +1517,39 @@
       });
     });
 
-    // ── Contact form
-    function handl
+    // ── Contact form ──
+    async function handleSubmit(e) {
+      e.preventDefault();
+      const btn     = e.target.querySelector(".form-submit");
+      const name    = e.target.querySelector("[name=name]")?.value.trim()    || "";
+      const email   = e.target.querySelector("[name=email]")?.value.trim()   || "";
+      const subject = e.target.querySelector("[name=subject]")?.value.trim() || "";
+      const message = e.target.querySelector("[name=message]")?.value.trim() || "";
+
+      if (!name || !email || !message) {
+        alert("Please fill in all required fields."); return;
+      }
+
+      btn.textContent = "Sending…";
+      btn.disabled = true;
+
+      try {
+        const mailto = "mailto:info@soluken.co.ke"
+          + "?subject=" + encodeURIComponent(subject || "Website Enquiry — " + name)
+          + "&body="    + encodeURIComponent("Name: " + name + "
+Email: " + email + "
+
+" + message);
+        window.location.href = mailto;
+        btn.textContent = "Message Sent ✓";
+        e.target.reset();
+      } catch(err) {
+        btn.textContent = "Send Message";
+        btn.disabled = false;
+        alert("Something went wrong. Please email us directly at info@soluken.co.ke");
+      }
+    }
+
+  </script>
+</body>
+</html>
