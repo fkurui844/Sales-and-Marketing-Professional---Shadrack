@@ -1332,22 +1332,48 @@
     function applySettings(s){
       if(!s) s=getSettings();
 
+      // Helper: try multiple key variants (sheet may lowercase/strip spaces)
+      function val(...keys) {
+        for (const k of keys) {
+          if (s[k] !== undefined && s[k] !== '') return s[k];
+        }
+        const norm = k => k.toLowerCase().replace(/[\s_-]+/g,'');
+        for (const k of keys) {
+          const found = Object.keys(s).find(sk => norm(sk) === norm(k));
+          if (found && s[found] !== '') return s[found];
+        }
+        return '';
+      }
+
       // Tagline
-      if(s.tagline){
-        const tl=document.getElementById('siteTagline');
-        if(tl) tl.textContent=s.tagline;
+      const tagline = val('tagline','Tagline','site_tagline');
+      if(tagline){ const tl=document.getElementById('siteTagline'); if(tl) tl.textContent=tagline; }
+
+      // Email — contact section + footer
+      const email = val('email','Email','contact_email','contactemail');
+      if(email){
+        ['contactEmail','contactEmail2'].forEach(id => {
+          const el=document.getElementById(id);
+          if(el) el.innerHTML=`<a href="mailto:${escHtml(email)}" style="color:inherit;text-decoration:none;">${escHtml(email)}</a>`;
+        });
       }
 
-      // Email
-      if(s.email){
-        const el=document.getElementById('contactEmail');
-        if(el) el.innerHTML=`<a href="mailto:${escHtml(s.email)}" style="color:inherit;text-decoration:none;">${escHtml(s.email)}</a>`;
+      // Phone — contact section + footer
+      const phone = val('phone','Phone','contact_phone','contactphone');
+      if(phone){
+        ['contactPhone','contactPhone2'].forEach(id => {
+          const el=document.getElementById(id);
+          if(el) el.textContent=phone;
+        });
       }
 
-      // Phone
-      if(s.phone){
-        const el=document.getElementById('contactPhone');
-        if(el) el.textContent=s.phone;
+      // Location — contact section + footer
+      const location = val('location','Location','address','Address','contact_location');
+      if(location){
+        ['contactLocation','contactLocation2'].forEach(id => {
+          const el=document.getElementById(id);
+          if(el) el.textContent=location;
+        });
       }
     }
 
