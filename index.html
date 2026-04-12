@@ -412,7 +412,7 @@
     #home {
       position: relative; min-height: 100vh;
       display: flex; flex-direction: column; justify-content: center;
-      padding: 6rem 4rem 6rem;
+      padding: 4rem 4rem 6rem;
       overflow: hidden;
     }
     .hero-bg-circle {
@@ -814,7 +814,7 @@
   <section id="home">
     <div class="hero-bg-circle"></div>
     <div class="hero-bg-circle"></div>
-    <div class="hero-badge">Nairobi, Kenya · Est. 2020</div>
+
     <p class="hero-tag">Sales &amp; Marketing · Leadership · Consultancy</p>
     <h1 class="hero-name">Strategic<br><em>Growth</em><br>Partner</h1>
     <p class="hero-tagline">
@@ -1279,17 +1279,24 @@
         return;
       }
       if(empty) empty.style.display='none';
-      grid.innerHTML=projects.map(p=>`
+      grid.innerHTML=projects.map(p=>{
+        const name   = p['Project Tittle'] || p.name        || '';
+        const desc   = p['Description Text'] || p.desc      || '';
+        const tag    = p['Category label']   || p.tag       || '';
+        const client = p['Client Name']      || p.client    || '';
+        const year   = p['Year completed']   || p.year      || '';
+        return `
         <div style="background:var(--navy);border:1px solid var(--divider);padding:2.5rem 2rem;border-radius:2px;position:relative;overflow:hidden;transition:background 0.3s,transform 0.3s,border-color 0.3s;"
           onmouseover="this.style.background='var(--navy-light)';this.style.transform='translateY(-3px)';this.querySelector('.proj-bar').style.transform='scaleX(1)'"
           onmouseout="this.style.background='var(--navy)';this.style.transform='translateY(0)';this.querySelector('.proj-bar').style.transform='scaleX(0)'">
           <div class="proj-bar" style="position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold-light));transform:scaleX(0);transform-origin:left;transition:transform 0.4s ease;"></div>
-          ${p.tag?`<span style="font-size:0.68rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);font-weight:500;font-family:'Montserrat',sans-serif;">${escHtml(p.tag)}</span>`:''}
-          <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.45rem;font-weight:400;color:var(--cream);margin:0.5rem 0 0.4rem;line-height:1.25;">${escHtml(p.name||'')}</h3>
+          ${tag?`<span style="font-size:0.68rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);font-weight:500;font-family:'Montserrat',sans-serif;">${escHtml(tag)}</span>`:''}
+          <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.45rem;font-weight:400;color:var(--cream);margin:0.5rem 0 0.4rem;line-height:1.25;">${escHtml(name)}</h3>
           <div style="width:40px;height:1px;background:var(--gold);margin-bottom:0.9rem;opacity:0.6;"></div>
-          ${p.client?`<p style="font-size:0.8rem;color:var(--gold-light);margin-bottom:0.8rem;font-family:'Montserrat',sans-serif;letter-spacing:0.05em;">${escHtml(p.client)}${p.year?' · '+escHtml(p.year):''}</p>`:''}
-          ${p.desc?`<p style="font-size:0.87rem;line-height:1.85;color:var(--cream-dim);font-weight:300;">${escHtml(p.desc)}</p>`:''}
-        </div>`).join('');
+          ${client?`<p style="font-size:0.8rem;color:var(--gold-light);margin-bottom:0.8rem;font-family:'Montserrat',sans-serif;letter-spacing:0.05em;">${escHtml(client)}${year?' · '+escHtml(year):''}</p>`:''}
+          ${desc?`<p style="font-size:0.87rem;line-height:1.85;color:var(--cream-dim);font-weight:300;">${escHtml(desc)}</p>`:''}
+        </div>`;
+      }).join('');
     }
 
     // ══ SETTINGS ══
