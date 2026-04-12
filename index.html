@@ -790,6 +790,7 @@
       <div class="adm-tabs">
         <button class="adm-tab active" onclick="switchTab('services',this)">⚙️ Services</button>
         <button class="adm-tab" onclick="switchTab('projects',this)">📁 Projects</button>
+        <button class="adm-tab" onclick="switchTab('custom',this)">✨ Custom Variables</button>
         <button class="adm-tab" onclick="switchTab('settings',this)">🔧 Settings</button>
       </div>
 
@@ -863,6 +864,45 @@
         </div>
       </div>
 
+      <!-- CUSTOM VARIABLES TAB -->
+      <div id="tab-custom" class="adm-tab-content" style="display:none;">
+        <div class="adm-section-bar">
+          <h3 class="adm-section-title">Custom Variables</h3>
+          <button class="adm-add-btn" onclick="openCustomForm()">+ Add Variable</button>
+        </div>
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1.5rem;line-height:1.7;">
+          Add any extra content variables here (e.g. hero tagline, stat numbers, section blurbs).
+          These are also editable directly in the <strong>Custom</strong> sheet in Google Sheets.
+        </p>
+        <div id="adminCustomList" class="adm-list"></div>
+
+        <!-- Custom Variable Form -->
+        <div id="customForm" class="adm-form" style="display:none;">
+          <h4 class="adm-form-title" id="customFormTitle">Add New Variable</h4>
+          <input type="hidden" id="editCustomKey" />
+          <div class="form-group">
+            <label class="form-label">Key (no spaces) *</label>
+            <input type="text" class="form-input" id="custKey" placeholder="e.g. hero_tagline" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Label (friendly name)</label>
+            <input type="text" class="form-input" id="custLabel" placeholder="e.g. Hero Tagline" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Value *</label>
+            <textarea class="form-textarea" id="custValue" placeholder="Enter the content value…" style="min-height:80px"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <input type="text" class="form-input" id="custType" placeholder="text / number / url" value="text" />
+          </div>
+          <div style="display:flex;gap:1rem;margin-top:1rem;">
+            <button class="btn-cancel" onclick="cancelCustomForm()">Cancel</button>
+            <button class="btn-save" onclick="saveCustomVar()">Save Variable</button>
+          </div>
+        </div>
+      </div>
+
       <!-- SETTINGS TAB -->
       <div id="tab-settings" class="adm-tab-content" style="display:none;">
         <h3 class="adm-section-title" style="margin-bottom:1.5rem;">Site Settings</h3>
@@ -890,12 +930,11 @@
           <button class="btn-save" onclick="saveSettings()">Save Settings</button>
           <button class="btn-cancel" style="color:#e05c5c;border-color:#e05c5c;" onclick="resetAllData()">Reset All Data</button>
         </div>
-        <p id="settingsSaved" style="color:#4caf82;font-size:0.82rem;margin-top:0.8rem;display:none;">✓ Settings saved and synced to cloud.</p>
-        <p id="firebaseRulesWarning" style="color:#e8a23a;font-size:0.8rem;margin-top:0.5rem;display:none;line-height:1.6;">
-          ⚠ Firebase returned 403 — changes are saved locally only.<br>
-          Fix: Go to <strong>Firebase Console → Realtime Database → Rules</strong> and set:<br>
-          <code style="background:var(--navy-light);padding:2px 6px;border-radius:3px;font-size:0.76rem;">{".read": true, ".write": true}</code>
-        </p>
+        <p id="settingsSaved" style="color:#4caf82;font-size:0.82rem;margin-top:0.8rem;display:none;">✓ Settings saved and synced to Google Sheets.</p>
+        <div style="margin-top:1.5rem;padding:1rem 1.2rem;background:var(--gold-pale);border:1px solid var(--divider);border-radius:4px;font-size:0.8rem;color:var(--muted);line-height:1.7;">
+          📊 <strong style="color:var(--cream);">Google Sheets Backend</strong><br>
+          All content is stored in your Google Sheet. To edit directly, open the sheet and update the relevant tab (Services, Projects, Settings, Custom). Changes sync to this page within ~60 seconds automatically.
+        </div>
 
       </div>
 
@@ -933,9 +972,9 @@
     // ══════════════════════════════════════════
 
     const ADMIN_PW_KEY   = 'soluken_admin_pw';
-    const DB_URL_KEY     = 'soluken_db_url';
-    // Baked-in DB URL — set once by developer so ALL visitors load cloud data automatically
-    const HARDCODED_DB_URL = 'https://soluken-consultants-ltd-default-rtdb.europe-west1.firebasedatabase.app';
+    // ── Google Apps Script Web App URL ──
+    // After deploying Code.gs, paste the Web App URL here:
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyAUmpzXLJXeBUyChI5YkBGAtM2TMJntf60QAomx4LiMOBdP6R6qUyqSPj9Q72ge1j3/exec';
     const SERVICES_KEY   = 'soluken_services';
     const PROJECTS_KEY   = 'soluken_projects';
     const SETTINGS_KEY   = 'soluken_settings';
@@ -968,8 +1007,10 @@
     function getServices()  { try { return JSON.parse(localStorage.getItem(SERVICES_KEY)) || []; } catch(e){ return []; } }
     function getProjects()  { try { return JSON.parse(localStorage.getItem(PROJECTS_KEY)) || []; } catch(e){ return []; } }
     function getSettings()  { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch(e){ return {}; } }
+    function getCustomVars(){ try { return JSON.parse(localStorage.getItem('soluken_custom')) || []; } catch(e){ return []; } }
     function saveServices(d){ localStorage.setItem(SERVICES_KEY, JSON.stringify(d)); cloudSet('services', d); }
     function saveProjects(d){ localStorage.setItem(PROJECTS_KEY, JSON.stringify(d)); cloudSet('projects', d); }
+    function saveCustomVarsData(d){ localStorage.setItem('soluken_custom', JSON.stringify(d)); cloudSet('custom', d); }
     function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
     // ── Login ──
@@ -995,6 +1036,7 @@
       renderServicesSection();
       renderAdminServices();
       renderAdminProjects();
+      renderAdminCustomVars();
       loadSettingsForm();
     }
     function closeAdminPanel(){
@@ -1010,6 +1052,7 @@
       document.getElementById('tab-'+name).style.display='block';
       btn.classList.add('active');
       if (name === 'settings') loadSettingsForm();
+      if (name === 'custom')   renderAdminCustomVars();
     }
 
     // ══ DEFAULT SERVICES (shown if no saved data) ══
@@ -1213,7 +1256,7 @@
       cloudSet('settings', s);
       applySettings(s);
       const saved = document.getElementById('settingsSaved');
-      saved.textContent = '✓ Settings saved and synced to cloud.';
+      saved.textContent = '✓ Settings saved and synced to Google Sheets.';
       saved.style.display='block';
       setTimeout(()=>saved.style.display='none',3500);
     }
@@ -1255,104 +1298,183 @@
     }
 
     async function resetAllData(){
-      if(!confirm('This will delete ALL custom services, projects and settings for ALL users. Are you sure?')) return;
-      [SERVICES_KEY,PROJECTS_KEY,SETTINGS_KEY].forEach(k=>localStorage.removeItem(k));
-      await Promise.all([cloudDelete('services'), cloudDelete('projects'), cloudDelete('settings')]);
+      if(!confirm('This will delete ALL custom services, projects, settings and custom variables for ALL users. Are you sure?')) return;
+      [SERVICES_KEY,PROJECTS_KEY,SETTINGS_KEY,'soluken_custom'].forEach(k=>localStorage.removeItem(k));
+      await Promise.all([cloudDelete('services'), cloudDelete('projects'), cloudDelete('settings'), cloudDelete('custom')]);
       renderServicesSection();
       renderProjectsSection();
       renderAdminServices();
       renderAdminProjects();
+      renderAdminCustomVars();
       loadSettingsForm();
-      alert('All data has been reset across all users.');
+      alert('All data has been reset.');
     }
 
 
     // ══════════════════════════════════════════
-    //  CLOUD SYNC — Firebase Realtime Database
+    //  CUSTOM VARIABLES — Admin Tab
     // ══════════════════════════════════════════
 
-    function getDbUrl() {
-      const stored = (localStorage.getItem(DB_URL_KEY) || '').trim().replace(/\/$/, '');
-      const hardcoded = (HARDCODED_DB_URL || '').trim().replace(/\/$/, '');
-      return stored || hardcoded;
+    function renderAdminCustomVars(){
+      const list = document.getElementById('adminCustomList');
+      if(!list) return;
+      const vars = getCustomVars();
+      if(!vars.length){
+        list.innerHTML='<p style="color:var(--muted);font-size:0.88rem;">No custom variables yet. Click "+ Add Variable" to create one.</p>';
+        return;
+      }
+      list.innerHTML = vars.map(v=>`
+        <div class="adm-item">
+          <div class="adm-item-icon" style="font-size:1.2rem;">✨</div>
+          <div class="adm-item-body">
+            <p class="adm-item-title">${escHtml(v.label||v.key)} <span style="font-size:0.72rem;color:var(--muted);font-weight:300;">[${escHtml(v.key)}]</span></p>
+            <p class="adm-item-desc">${escHtml(String(v.value||''))} <span style="color:var(--muted);font-size:0.72rem;">(${escHtml(v.type||'text')})</span></p>
+          </div>
+          <div class="adm-item-actions">
+            <button class="adm-btn-edit" onclick="editCustomVar('${escHtml(v.key)}')">Edit</button>
+            <button class="adm-btn-del"  onclick="deleteCustomVar('${escHtml(v.key)}')">Delete</button>
+          </div>
+        </div>`).join('');
     }
 
-    async function cloudGet(key) {
-      const url = getDbUrl();
-      if (!url) return null;
+    function openCustomForm(){
+      document.getElementById('customForm').style.display='block';
+      document.getElementById('customFormTitle').textContent='Add New Variable';
+      document.getElementById('editCustomKey').value='';
+      document.getElementById('custKey').value='';
+      document.getElementById('custLabel').value='';
+      document.getElementById('custValue').value='';
+      document.getElementById('custType').value='text';
+      document.getElementById('custKey').removeAttribute('readonly');
+    }
+    function cancelCustomForm(){ document.getElementById('customForm').style.display='none'; }
+
+    function editCustomVar(key){
+      const vars = getCustomVars();
+      const v = vars.find(x=>x.key===key); if(!v) return;
+      document.getElementById('customForm').style.display='block';
+      document.getElementById('customFormTitle').textContent='Edit Variable';
+      document.getElementById('editCustomKey').value=key;
+      document.getElementById('custKey').value=v.key;
+      document.getElementById('custKey').setAttribute('readonly','readonly');
+      document.getElementById('custLabel').value=v.label||'';
+      document.getElementById('custValue').value=v.value||'';
+      document.getElementById('custType').value=v.type||'text';
+    }
+
+    function saveCustomVar(){
+      const key   = document.getElementById('custKey').value.trim().replace(/\s+/g,'_');
+      const label = document.getElementById('custLabel').value.trim();
+      const value = document.getElementById('custValue').value.trim();
+      const type  = document.getElementById('custType').value.trim() || 'text';
+      if(!key){ alert('Please enter a key.'); return; }
+      if(!value){ alert('Please enter a value.'); return; }
+      const editKey = document.getElementById('editCustomKey').value;
+      let vars = getCustomVars();
+      if(editKey && vars.find(v=>v.key===editKey)){
+        vars = vars.map(v=>v.key===editKey ? {key,label,value,type} : v);
+      } else {
+        if(vars.find(v=>v.key===key)){ alert('A variable with that key already exists.'); return; }
+        vars.push({key,label,value,type});
+      }
+      saveCustomVarsData(vars);
+      cancelCustomForm();
+      renderAdminCustomVars();
+      applyCustomVars(vars);
+    }
+
+    function deleteCustomVar(key){
+      if(!confirm('Delete this variable?')) return;
+      const vars = getCustomVars().filter(v=>v.key!==key);
+      saveCustomVarsData(vars);
+      renderAdminCustomVars();
+    }
+
+    // ══════════════════════════════════════════
+    //  CLOUD SYNC — Google Sheets via Apps Script
+    // ══════════════════════════════════════════
+
+    // ── Low-level fetch helpers ──
+
+    async function sheetGet(sheetKey) {
+      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('YOUR_DEPLOYMENT_ID')) return null;
       try {
-        const res = await fetch(`${url}/soluken/${key}.json`);
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=read&sheet=${sheetKey}&_=${Date.now()}`, { redirect: 'follow' });
         if (!res.ok) return null;
-        const data = await res.json();
-        return data; // null if empty node
+        return await res.json();
       } catch(e) { return null; }
     }
 
     async function cloudSet(key, data) {
-      const url = getDbUrl();
-      if (!url) return;
+      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('YOUR_DEPLOYMENT_ID')) return;
       try {
-        const res = await fetch(`${url}/soluken/${key}.json`, {
-          method: 'PUT',
-          mode: 'cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-        if ((res.status === 401 || res.status === 403) && typeof showFirebaseRulesWarning === 'function') {
-          showFirebaseRulesWarning();
+        // Convert settings object to array of {key,value} rows for the sheet
+        let payload = data;
+        if (key === 'settings' && !Array.isArray(data)) {
+          payload = Object.entries(data).map(([k,v]) => ({ key: k, value: v }));
         }
-      } catch(e) { /* silent — network issues shouldn't break the admin UI */ }
+        await fetch(APPS_SCRIPT_URL, {
+          method : 'POST',
+          mode   : 'no-cors', // Apps Script CORS is handled server-side
+          headers: { 'Content-Type': 'text/plain' }, // text/plain avoids preflight
+          body   : JSON.stringify({ action: 'write', sheet: key, data: payload, password: getAdminPw() })
+        });
+      } catch(e) { /* silent */ }
     }
 
     async function cloudDelete(key) {
-      const url = getDbUrl();
-      if (!url) return;
+      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('YOUR_DEPLOYMENT_ID')) return;
       try {
-        await fetch(`${url}/soluken/${key}.json`, { method: 'DELETE', mode: 'cors' });
+        await fetch(APPS_SCRIPT_URL, {
+          method : 'POST',
+          mode   : 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body   : JSON.stringify({ action: 'delete', sheet: key, password: getAdminPw() })
+        });
       } catch(e) {}
     }
 
-    // Firebase stores arrays as objects {0:{...},1:{...}} — always convert back
-    function toArray(v) {
-      if (!v) return [];
-      if (Array.isArray(v)) return v;
-      return Object.values(v).filter(x => x !== null && x !== undefined);
-    }
-
+    // ── Load all data from Google Sheets ──
     let _syncRetries = 0;
     const _maxRetries = 5;
 
     async function loadFromCloud() {
-      const url = getDbUrl();
-      if (!url) return;
+      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('YOUR_DEPLOYMENT_ID')) return;
       try {
-        const res = await fetch(`${url}/soluken.json?_=${Date.now()}`, {
-          method: 'GET',
-          mode: 'cors',
-          cache: 'no-store'
-        });
-        if (res.status === 401 || res.status === 403) {
-          // Firebase rules are blocking — stop polling silently
-          stopSyncPolling();
-          return;
-        }
-        if (!res.ok) return;
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=read&sheet=all&_=${Date.now()}`, { redirect: 'follow' });
+        if (!res.ok) { _syncRetries++; if(_syncRetries >= _maxRetries) stopSyncPolling(); return; }
         const all = await res.json();
-        if (!all) return;
-        _syncRetries = 0; // reset on success
+        if (!all || all.error) { _syncRetries++; if(_syncRetries >= _maxRetries) stopSyncPolling(); return; }
+        _syncRetries = 0;
         let changed = false;
-        if (all.services != null) {
-          localStorage.setItem(SERVICES_KEY, JSON.stringify(toArray(all.services)));
+
+        // Services: array of {id,title,desc,icon,svg}
+        if (Array.isArray(all.services) && all.services.length) {
+          localStorage.setItem(SERVICES_KEY, JSON.stringify(all.services));
           changed = true;
         }
-        if (all.projects != null) {
-          localStorage.setItem(PROJECTS_KEY, JSON.stringify(toArray(all.projects)));
+
+        // Projects: array of {id,name,client,year,desc,tag}
+        if (Array.isArray(all.projects) && all.projects.length) {
+          localStorage.setItem(PROJECTS_KEY, JSON.stringify(all.projects));
           changed = true;
         }
-        if (all.settings != null) {
-          localStorage.setItem(SETTINGS_KEY, JSON.stringify(all.settings));
+
+        // Settings: array of {key,value} → convert to object
+        if (Array.isArray(all.settings) && all.settings.length) {
+          const obj = {};
+          all.settings.forEach(r => { if(r.key) obj[r.key] = r.value || ''; });
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(obj));
           changed = true;
         }
+
+        // Custom variables: array of {key,label,value,type}
+        if (Array.isArray(all.custom) && all.custom.length) {
+          localStorage.setItem('soluken_custom', JSON.stringify(all.custom));
+          applyCustomVars(all.custom);
+          changed = true;
+        }
+
         if (changed) {
           renderServicesSection();
           renderProjectsSection();
@@ -1360,10 +1482,25 @@
           showSyncPulse();
         }
       } catch(e) {
-        // Network error — retry with backoff, then give up silently
         _syncRetries++;
         if (_syncRetries >= _maxRetries) stopSyncPolling();
       }
+    }
+
+    // Apply any custom variables defined in the Custom sheet
+    function applyCustomVars(vars) {
+      if (!vars) return;
+      vars.forEach(v => {
+        if (!v.key || !v.value) return;
+        // Hero tagline special case
+        if (v.key === 'hero_tagline') {
+          const el = document.querySelector('.hero-tagline');
+          if (el) el.textContent = v.value;
+        }
+        // Generic: find element with id matching key
+        const el = document.getElementById(v.key);
+        if (el) el.textContent = v.value;
+      });
     }
 
     // Brief gold dot pulse in nav when fresh cloud data lands
@@ -1374,12 +1511,12 @@
       setTimeout(() => { el.style.opacity = '0'; }, 2000);
     }
 
-    // Poll every 30 s so open pages update automatically when owner saves
+    // Poll every 60 s
     let _syncTimer = null;
     function startSyncPolling() {
       if (_syncTimer) clearInterval(_syncTimer);
-      if (!getDbUrl()) return;
-      _syncTimer = setInterval(loadFromCloud, 30000);
+      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('YOUR_DEPLOYMENT_ID')) return;
+      _syncTimer = setInterval(loadFromCloud, 60000);
     }
     function stopSyncPolling() {
       if (_syncTimer) { clearInterval(_syncTimer); _syncTimer = null; }
@@ -1395,13 +1532,6 @@
       }
     }
 
-
-
-    function showFirebaseRulesWarning() {
-      const el = document.getElementById('firebaseRulesWarning');
-      if (el) { el.style.display = 'block'; }
-    }
-
     // ── Utility ──
     function escHtml(str){ const d=document.createElement('div'); d.appendChild(document.createTextNode(str||'')); return d.innerHTML; }
 
@@ -1410,7 +1540,7 @@
       renderServicesSection();
       renderProjectsSection();
       applySettings();
-      loadFromCloud().then(startSyncPolling); // pull + poll every 30s
+      loadFromCloud().then(startSyncPolling);
     });
     document.getElementById('year').textContent = new Date().getFullYear();
 
