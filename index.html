@@ -794,6 +794,7 @@
       <li><a href="#about">About Us</a></li>
       <!-- dynamic sheet nav items injected here -->
       <li><a href="#services">Services</a></li>
+      <li><a href="#projects">Projects</a></li>
       <li><a href="#process">My Approach</a></li>
       <li><a href="#contact" class="nav-cta">Get In Touch</a></li>
     </ul>
@@ -1159,6 +1160,8 @@
       // Insert a nav item for each active sheet in registry order
       Object.entries(SHEET_NAV_CONFIG).forEach(([key, cfg]) => {
         if (!activeKeys.has(key)) return;
+        if (key === 'services') return; // already a static nav link
+        if (key === 'projects') return; // already a static nav link
         const li = document.createElement('li');
         li.setAttribute('data-sheet-nav', key);
         li.innerHTML = `<a href="${cfg.anchor}">${cfg.label}</a>`;
