@@ -1270,15 +1270,22 @@
 
     function renderProjectsSection(){
       const projects = getSheetData('projects');
+      const section = document.getElementById('projects');
       const grid  = document.getElementById('projectsGrid');
       const empty = document.getElementById('projectsEmpty');
       if(!grid) return;
+
       if(!projects.length){
         grid.innerHTML='';
         if(empty) empty.style.display='block';
+        // Keep section visible so nav link still works; show "coming soon"
+        if(section) section.style.display='';
         return;
       }
+
       if(empty) empty.style.display='none';
+      if(section) section.style.display=''; // always show when data exists
+
       grid.innerHTML=projects.map(p=>{
         const name   = p['Project Tittle'] || p.name        || '';
         const desc   = p['Description Text'] || p.desc      || '';
@@ -1500,7 +1507,7 @@
 
     // ── Init on load ──
     document.addEventListener('DOMContentLoaded', () => {
-      ['services', 'projects'].forEach(id => {
+      ['services'].forEach(id => {
         const s = document.getElementById(id);
         if (s) s.style.display = 'none';
       });
