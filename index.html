@@ -791,7 +791,6 @@
         <button class="adm-tab active" onclick="switchTab('services',this)">⚙️ Services</button>
         <button class="adm-tab" onclick="switchTab('projects',this)">📁 Projects</button>
         <button class="adm-tab" onclick="switchTab('settings',this)">🔧 Settings</button>
-        <button class="adm-tab" onclick="switchTab('sync',this)">☁ Cloud Sync</button>
       </div>
 
       <!-- SERVICES TAB -->
@@ -895,50 +894,6 @@
 
       </div>
 
-      <!-- CLOUD SYNC TAB -->
-      <div id="tab-sync" class="adm-tab-content" style="display:none;">
-        <div class="adm-section-bar">
-          <h3 class="adm-section-title">☁ Cloud Sync</h3>
-          <span id="dbStatusBadge" style="font-size:0.82rem;font-weight:600;padding:0.3rem 0.9rem;border-radius:20px;background:var(--navy-light);color:var(--muted);"></span>
-        </div>
-
-        <div style="background:var(--navy-mid);border:1px solid var(--divider);border-radius:6px;padding:1.8rem;margin-bottom:1.5rem;">
-          <p style="font-size:0.95rem;color:var(--cream-dim);line-height:1.8;margin-bottom:1.2rem;">
-            Connect a free <strong style="color:var(--cream);">Firebase Realtime Database</strong> to make every change you save — services, projects, and settings — instantly visible to <em>anyone</em> who opens this link, on any device.
-          </p>
-          <div style="display:flex;flex-direction:column;gap:0.6rem;font-size:0.82rem;color:var(--muted);line-height:1.7;">
-            <span>① Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:none;font-weight:500;">console.firebase.google.com</a> → Create a project (free)</span>
-            <span>② Build → Realtime Database → Create Database → choose <em>Test mode</em></span>
-            <span>③ Copy the database URL (looks like <code style="background:var(--navy-light);padding:1px 6px;border-radius:3px;font-size:0.78rem;">https://your-app-rtdb.firebaseio.com</code>)</span>
-            <span>④ Paste it below and click <strong style="color:var(--cream-dim);">Connect & Sync</strong></span>
-          </div>
-        </div>
-
-        <div class="adm-form">
-          <p class="adm-form-title">Database Connection</p>
-          <div class="form-group">
-            <label class="form-label">Firebase Database URL</label>
-            <input type="url" class="form-input" id="setDbUrl"
-              placeholder="https://your-app-default-rtdb.firebaseio.com"
-              style="font-family:monospace;font-size:0.85rem;" />
-          </div>
-          <div style="display:flex;gap:0.8rem;margin-top:1.2rem;align-items:center;flex-wrap:wrap;">
-            <button class="btn-save" onclick="saveDbUrl()" style="min-width:140px;">Connect &amp; Sync</button>
-            <button class="btn-cancel" onclick="testDbConnection()">Test Connection</button>
-            <button class="btn-cancel" onclick="forceSyncNow()">↻ Sync Now</button>
-            <button class="btn-cancel" onclick="bakeAndDownload()" style="color:var(--gold);border-color:var(--gold);">⬇ Bake &amp; Download</button>
-            <button class="btn-cancel" onclick="disconnectCloud()" style="color:#e05c5c;border-color:rgba(224,92,92,0.4);">Disconnect</button>
-          </div>
-          <p id="dbStatus" style="font-size:0.85rem;font-weight:500;margin-top:1rem;min-height:1.4em;"></p>
-        </div>
-
-        <div style="margin-top:1.5rem;padding:1.2rem;background:var(--gold-pale);border:1px solid var(--divider);border-radius:4px;">
-          <p style="font-size:0.78rem;color:var(--muted);line-height:1.7;">
-            <strong style="color:var(--cream-dim);">How it works:</strong> Once connected, every Save action in Services, Projects, and Settings is pushed to Firebase immediately. Visitors load the latest data when they open the link. Each device connects once — the URL is saved locally. The admin password is <em>never</em> synced for security.
-          </p>
-        </div>
-      </div>
-
     </div>
   </div>
 
@@ -975,7 +930,7 @@
     const ADMIN_PW_KEY   = 'soluken_admin_pw';
     const DB_URL_KEY     = 'soluken_db_url';
     // Baked-in DB URL — set once by developer so ALL visitors load cloud data automatically
-    const HARDCODED_DB_URL = '';
+    const HARDCODED_DB_URL = 'https://soluken-consultants-ltd-default-rtdb.europe-west1.firebasedatabase.app';
     const SERVICES_KEY   = 'soluken_services';
     const PROJECTS_KEY   = 'soluken_projects';
     const SETTINGS_KEY   = 'soluken_settings';
@@ -1049,7 +1004,6 @@
       document.querySelectorAll('.adm-tab').forEach(t=>t.classList.remove('active'));
       document.getElementById('tab-'+name).style.display='block';
       btn.classList.add('active');
-      if (name === 'sync') updateDbStatus();
       if (name === 'settings') loadSettingsForm();
     }
 
@@ -1239,9 +1193,6 @@
       document.getElementById('setEmail').value=s.email||'';
       document.getElementById('setPhone').value=s.phone||'';
       document.getElementById('setNewPw').value='';
-      const dbInput=document.getElementById('setDbUrl');
-      if(dbInput) dbInput.value=localStorage.getItem(DB_URL_KEY)||'';
-      updateDbStatus();
     }
 
     function saveSettings(){
@@ -1422,118 +1373,6 @@
       }
     }
 
-    function updateDbStatus() {
-      const el = document.getElementById('dbStatus');
-      const badge = document.getElementById('dbStatusBadge');
-      const stored = (localStorage.getItem(DB_URL_KEY) || '').trim();
-      const baked  = (HARDCODED_DB_URL || '').trim();
-      const url    = getDbUrl();
-      const source = baked ? ' (baked ✓)' : stored ? ' (this device)' : '';
-      if (el) {
-        el.textContent = url
-          ? '● Connected' + source + ': ' + url
-          : '○ Not connected — changes are device-only';
-        el.style.color = url ? '#4caf82' : 'var(--muted)';
-      }
-      if (badge) {
-        badge.textContent = url ? (baked ? '● Live (global)' : '● Live (local)') : '○ Local only';
-        badge.style.color = url ? '#4caf82' : 'var(--muted)';
-        badge.style.background = url ? 'rgba(76,175,130,0.12)' : 'var(--navy-light)';
-      }
-      const input = document.getElementById('setDbUrl');
-      if (input && !input.value) input.value = url;
-    }
-
-
-    function bakeAndDownload() {
-      const url = getDbUrl();
-      if (!url) {
-        alert('Connect to a Firebase database first, then bake.');
-        return;
-      }
-      // Read the current page's HTML source
-      const src = document.documentElement.outerHTML;
-      // Replace the empty HARDCODED_DB_URL with the actual URL
-      const baked = src.replace(
-        /const HARDCODED_DB_URL = '[^']*';/,
-        `const HARDCODED_DB_URL = '${url}';`
-      );
-      // Trigger download
-      const blob = new Blob([baked], { type: 'text/html' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'Shadrack.html';
-      a.click();
-      URL.revokeObjectURL(a.href);
-      const st = document.getElementById('bakeStatus');
-      if (st) {
-        st.textContent = '✓ Downloaded! Replace your hosted file with this new version — all visitors will auto-sync.';
-        st.style.color = '#4caf82';
-        st.style.display = 'block';
-        setTimeout(() => { st.style.display = 'none'; }, 6000);
-      }
-    }
-
-    function disconnectCloud() {
-      if (!confirm('Disconnect cloud sync? Changes will only be saved locally.')) return;
-      localStorage.removeItem(DB_URL_KEY);
-      stopSyncPolling();
-      const input = document.getElementById('setDbUrl');
-      if (input) input.value = '';
-      updateDbStatus();
-    }
-
-    async function saveDbUrl() {
-      const input = document.getElementById('setDbUrl');
-      const url = (input.value || '').trim().replace(/\/$/, '');
-      const statusEl = document.getElementById('dbStatus');
-      if (!url) {
-        localStorage.removeItem(DB_URL_KEY);
-        statusEl.textContent = '○ Disconnected';
-        statusEl.style.color = 'var(--muted)';
-        return;
-      }
-      // Test connection first
-      statusEl.textContent = 'Connecting…';
-      statusEl.style.color = 'var(--gold)';
-      try {
-        const res = await fetch(`${url}/soluken.json`);
-        if (!res.ok) throw new Error('Bad response: ' + res.status);
-        localStorage.setItem(DB_URL_KEY, url);
-        statusEl.textContent = '● Connected';
-        statusEl.style.color = '#4caf82';
-        // Push current local data to cloud so it's available to others
-        const services = getServices();
-        const projects = getProjects();
-        const settings = getSettings();
-        if (services.length) cloudSet('services', services);
-        if (projects.length) cloudSet('projects', projects);
-        if (Object.keys(settings).length) cloudSet('settings', settings);
-        // Then pull cloud data (cloud wins)
-        await loadFromCloud();
-        startSyncPolling(); // keep polling now that we're connected
-        if (typeof loadSettingsForm === 'function') loadSettingsForm();
-      } catch(e) {
-        statusEl.textContent = '✗ Cannot reach database — check URL & rules';
-        statusEl.style.color = '#e05c5c';
-      }
-    }
-
-    async function testDbConnection() {
-      const input = document.getElementById('setDbUrl');
-      const url = ((input && input.value) || getDbUrl() || '').trim().replace(/\/$/, '');
-      const statusEl = document.getElementById('dbStatus');
-      if (!url) { statusEl.textContent = 'Enter a URL first'; statusEl.style.color = '#e05c5c'; return; }
-      statusEl.textContent = 'Testing…'; statusEl.style.color = 'var(--gold)';
-      try {
-        const res = await fetch(`${url}/soluken.json`);
-        statusEl.textContent = res.ok ? '● Reachable ✓' : `✗ HTTP ${res.status}`;
-        statusEl.style.color = res.ok ? '#4caf82' : '#e05c5c';
-      } catch(e) {
-        statusEl.textContent = '✗ Cannot reach — check URL & Firebase rules';
-        statusEl.style.color = '#e05c5c';
-      }
-    }
 
     // ── Utility ──
     function escHtml(str){ const d=document.createElement('div'); d.appendChild(document.createTextNode(str||'')); return d.innerHTML; }
