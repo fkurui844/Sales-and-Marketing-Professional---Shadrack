@@ -574,17 +574,11 @@
     <div class="nav-toggle" id="navToggle" onclick="toggleNav()">
       <span></span><span></span><span></span>
     </div>
+    <span id="syncPulse" title="Content synced from cloud" style="width:7px;height:7px;border-radius:50%;background:var(--gold);flex-shrink:0;opacity:0;transition:opacity 0.5s ease;margin-left:0.4rem;"></span>
     <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle day/night mode">
       <span class="toggle-icon moon">🌙</span>
       <span class="toggle-icon sun">☀️</span>
     </button>
-    <!-- Sync pulse: invisible dot that briefly shows when cloud data lands -->
-    <span id="syncPulse" title="Content updated from cloud" style="
-      width:7px;height:7px;border-radius:50%;
-      background:var(--gold);flex-shrink:0;
-      opacity:0;transition:opacity 0.5s ease;
-      margin-left:0.5rem;
-    "></span>
   </nav>
 
   <!-- HERO -->
@@ -797,7 +791,7 @@
         <button class="adm-tab active" onclick="switchTab('services',this)">⚙️ Services</button>
         <button class="adm-tab" onclick="switchTab('projects',this)">📁 Projects</button>
         <button class="adm-tab" onclick="switchTab('settings',this)">🔧 Settings</button>
-        <button id="devSyncTab" class="adm-tab" onclick="switchTab('sync',this)" style="display:none;">☁ Cloud Sync</button>
+        <button class="adm-tab" onclick="switchTab('sync',this)">☁ Cloud Sync</button>
       </div>
 
       <!-- SERVICES TAB -->
@@ -899,12 +893,6 @@
         </div>
         <p id="settingsSaved" style="color:#4caf82;font-size:0.82rem;margin-top:0.8rem;display:none;">✓ Settings saved and synced to cloud.</p>
 
-        <!-- Developer access — intentionally subtle -->
-        <div style="margin-top:3rem;text-align:right;">
-          <span id="devAccessTrigger" onclick="promptDevAccess()"
-            style="font-size:0.68rem;color:var(--divider);cursor:default;letter-spacing:0.08em;user-select:none;"
-            title="">v2.0</span>
-        </div>
       </div>
 
       <!-- CLOUD SYNC TAB -->
@@ -989,7 +977,6 @@
     const PROJECTS_KEY   = 'soluken_projects';
     const SETTINGS_KEY   = 'soluken_settings';
     const DEFAULT_PW     = 'Soluken2026';
-    const DEV_PW         = 'SolukenDev2026';
 
     // ── Secret trigger: click the logo image 6 times within 8 seconds ──
     (function () {
@@ -1050,16 +1037,6 @@
     function closeAdminPanel(){
       adminModeActive = false;
       document.getElementById('adminPanel').style.display='none';
-      // Re-hide the developer sync tab for the next session
-      const devTab = document.getElementById('devSyncTab');
-      if (devTab) devTab.style.display = 'none';
-      // Reset tabs back to Services for next open
-      document.querySelectorAll('.adm-tab-content').forEach(t => t.style.display = 'none');
-      document.querySelectorAll('.adm-tab').forEach(t => t.classList.remove('active'));
-      const firstTab = document.getElementById('tab-services');
-      const firstBtn = document.querySelector('.adm-tab');
-      if (firstTab) firstTab.style.display = 'block';
-      if (firstBtn) firstBtn.classList.add('active');
       renderServicesSection(); // re-render without admin overlays
     }
 
@@ -1370,28 +1347,32 @@
       } catch(e) {}
     }
 
-    // Firebase stores arrays as objects {0:{...},1:{...}} — convert back
+    // Firebase stores arrays as objects {0:{...},1:{...}} — always convert back
     function toArray(v) {
       if (!v) return [];
       if (Array.isArray(v)) return v;
-      return Object.values(v);
+      return Object.values(v).filter(x => x !== null && x !== undefined);
     }
 
     async function loadFromCloud() {
       const url = getDbUrl();
       if (!url) return;
       try {
-        const res = await fetch(`${url}/soluken.json?ts=${Date.now()}`);
+        // Cache-bust so browsers always get fresh data
+        const res = await fetch(`${url}/soluken.json?_=${Date.now()}`);
         if (!res.ok) return;
         const all = await res.json();
         if (!all) return;
         let changed = false;
+
         if (all.services != null) {
-          localStorage.setItem(SERVICES_KEY, JSON.stringify(toArray(all.services)));
+          const svcs = toArray(all.services);
+          localStorage.setItem(SERVICES_KEY, JSON.stringify(svcs));
           changed = true;
         }
         if (all.projects != null) {
-          localStorage.setItem(PROJECTS_KEY, JSON.stringify(toArray(all.projects)));
+          const prjs = toArray(all.projects);
+          localStorage.setItem(PROJECTS_KEY, JSON.stringify(prjs));
           changed = true;
         }
         if (all.settings != null) {
@@ -1407,7 +1388,7 @@
       } catch(e) { console.warn('Cloud sync load error:', e); }
     }
 
-    // Show a brief "synced" pulse to confirm fresh data landed
+    // Brief gold dot pulse in nav when fresh cloud data lands
     function showSyncPulse() {
       const el = document.getElementById('syncPulse');
       if (!el) return;
@@ -1415,15 +1396,25 @@
       setTimeout(() => { el.style.opacity = '0'; }, 2000);
     }
 
-    // Poll for updates every 30 seconds while page is open
-    let syncInterval = null;
+    // Poll every 30 s so open pages update automatically when owner saves
+    let _syncTimer = null;
     function startSyncPolling() {
-      if (syncInterval) clearInterval(syncInterval);
+      if (_syncTimer) clearInterval(_syncTimer);
       if (!getDbUrl()) return;
-      syncInterval = setInterval(loadFromCloud, 30000);
+      _syncTimer = setInterval(loadFromCloud, 30000);
     }
     function stopSyncPolling() {
-      if (syncInterval) clearInterval(syncInterval);
+      if (_syncTimer) { clearInterval(_syncTimer); _syncTimer = null; }
+    }
+
+    async function forceSyncNow() {
+      const el = document.getElementById('dbStatus');
+      if (el) { el.textContent = 'Syncing…'; el.style.color = 'var(--gold)'; }
+      await loadFromCloud();
+      if (el) {
+        el.textContent = '● Synced at ' + new Date().toLocaleTimeString();
+        el.style.color = '#4caf82';
+      }
     }
 
     function updateDbStatus() {
@@ -1441,17 +1432,6 @@
       }
       const input = document.getElementById('setDbUrl');
       if (input && !input.value) input.value = url;
-    }
-
-
-    async function forceSyncNow() {
-      const statusEl = document.getElementById('dbStatus');
-      if (statusEl) { statusEl.textContent = 'Syncing…'; statusEl.style.color = 'var(--gold)'; }
-      await loadFromCloud();
-      if (statusEl) {
-        statusEl.textContent = '● Synced at ' + new Date().toLocaleTimeString();
-        statusEl.style.color = '#4caf82';
-      }
     }
 
     function disconnectCloud() {
@@ -1491,7 +1471,7 @@
         if (Object.keys(settings).length) cloudSet('settings', settings);
         // Then pull cloud data (cloud wins)
         await loadFromCloud();
-        startSyncPolling();
+        startSyncPolling(); // keep polling now that we're connected
         if (typeof loadSettingsForm === 'function') loadSettingsForm();
       } catch(e) {
         statusEl.textContent = '✗ Cannot reach database — check URL & rules';
@@ -1515,27 +1495,6 @@
       }
     }
 
-
-    // ── Developer Access ──
-    function promptDevAccess() {
-      const pw = prompt('Developer access code:');
-      if (pw === null) return;
-      if (pw === DEV_PW) {
-        const tab = document.getElementById('devSyncTab');
-        if (tab) {
-          tab.style.display = '';
-          // Auto-switch to it
-          document.querySelectorAll('.adm-tab-content').forEach(t => t.style.display = 'none');
-          document.querySelectorAll('.adm-tab').forEach(t => t.classList.remove('active'));
-          document.getElementById('tab-sync').style.display = 'block';
-          tab.classList.add('active');
-          updateDbStatus();
-        }
-      } else {
-        // No visible error — just silently ignore wrong attempts
-      }
-    }
-
     // ── Utility ──
     function escHtml(str){ const d=document.createElement('div'); d.appendChild(document.createTextNode(str||'')); return d.innerHTML; }
 
@@ -1544,7 +1503,7 @@
       renderServicesSection();
       renderProjectsSection();
       applySettings();
-      loadFromCloud().then(startSyncPolling); // pull shared data + begin polling
+      loadFromCloud().then(startSyncPolling); // pull + poll every 30s
     });
     document.getElementById('year').textContent = new Date().getFullYear();
 
