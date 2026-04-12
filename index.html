@@ -595,7 +595,7 @@
 
     /* ── CONTACT ── */
     #contact { background: var(--navy); }
-    .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: start; }
+    .contact-grid { display: grid; grid-template-columns: 1fr; gap: 5rem; align-items: start; max-width: 600px; }
     .contact-intro { font-size: 1rem; line-height: 1.9; color: var(--cream-dim); font-weight: 300; max-width: 400px; }
     .contact-detail { display: flex; align-items: center; gap: 1rem; margin-top: 2rem; }
     .contact-detail-icon { font-size: 1rem; color: var(--gold); width: 20px; }
@@ -1012,25 +1012,6 @@
           <span class="contact-detail-text" id="contactPhone">+254 700 000 000</span>
         </div>
       </div>
-      <form class="contact-form reveal" onsubmit="handleSubmit(event)">
-        <div class="form-group">
-          <label class="form-label">Your Name</label>
-          <input type="text" class="form-input" placeholder="Jane Doe" required />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Email Address</label>
-          <input type="email" class="form-input" placeholder="jane@company.com" required />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Subject</label>
-          <input type="text" class="form-input" placeholder="How can I help?" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Message</label>
-          <textarea class="form-textarea" placeholder="Tell me about your goals or challenges…"></textarea>
-        </div>
-        <button type="submit" class="form-submit">Send Message</button>
-      </form>
     </div>
   </section>
 
