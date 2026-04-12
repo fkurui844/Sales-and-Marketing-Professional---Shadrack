@@ -926,6 +926,7 @@
             <button class="btn-save" onclick="saveDbUrl()" style="min-width:140px;">Connect &amp; Sync</button>
             <button class="btn-cancel" onclick="testDbConnection()">Test Connection</button>
             <button class="btn-cancel" onclick="forceSyncNow()">↻ Sync Now</button>
+            <button class="btn-cancel" onclick="bakeAndDownload()" style="color:var(--gold);border-color:var(--gold);">⬇ Bake &amp; Download</button>
             <button class="btn-cancel" onclick="disconnectCloud()" style="color:#e05c5c;border-color:rgba(224,92,92,0.4);">Disconnect</button>
           </div>
           <p id="dbStatus" style="font-size:0.85rem;font-weight:500;margin-top:1rem;min-height:1.4em;"></p>
@@ -973,6 +974,8 @@
 
     const ADMIN_PW_KEY   = 'soluken_admin_pw';
     const DB_URL_KEY     = 'soluken_db_url';
+    // Baked-in DB URL — set once by developer so ALL visitors load cloud data automatically
+    const HARDCODED_DB_URL = '';
     const SERVICES_KEY   = 'soluken_services';
     const PROJECTS_KEY   = 'soluken_projects';
     const SETTINGS_KEY   = 'soluken_settings';
@@ -1313,7 +1316,9 @@
     // ══════════════════════════════════════════
 
     function getDbUrl() {
-      return (localStorage.getItem(DB_URL_KEY) || '').replace(/\/$/, '');
+      const stored = (localStorage.getItem(DB_URL_KEY) || '').trim().replace(/\/$/, '');
+      const hardcoded = (HARDCODED_DB_URL || '').trim().replace(/\/$/, '');
+      return stored || hardcoded;
     }
 
     async function cloudGet(key) {
@@ -1420,18 +1425,53 @@
     function updateDbStatus() {
       const el = document.getElementById('dbStatus');
       const badge = document.getElementById('dbStatusBadge');
-      const url = getDbUrl();
+      const stored = (localStorage.getItem(DB_URL_KEY) || '').trim();
+      const baked  = (HARDCODED_DB_URL || '').trim();
+      const url    = getDbUrl();
+      const source = baked ? ' (baked ✓)' : stored ? ' (this device)' : '';
       if (el) {
-        el.textContent = url ? '● Connected to ' + url : '○ Not connected — changes are device-only';
+        el.textContent = url
+          ? '● Connected' + source + ': ' + url
+          : '○ Not connected — changes are device-only';
         el.style.color = url ? '#4caf82' : 'var(--muted)';
       }
       if (badge) {
-        badge.textContent = url ? '● Live' : '○ Local only';
+        badge.textContent = url ? (baked ? '● Live (global)' : '● Live (local)') : '○ Local only';
         badge.style.color = url ? '#4caf82' : 'var(--muted)';
         badge.style.background = url ? 'rgba(76,175,130,0.12)' : 'var(--navy-light)';
       }
       const input = document.getElementById('setDbUrl');
       if (input && !input.value) input.value = url;
+    }
+
+
+    function bakeAndDownload() {
+      const url = getDbUrl();
+      if (!url) {
+        alert('Connect to a Firebase database first, then bake.');
+        return;
+      }
+      // Read the current page's HTML source
+      const src = document.documentElement.outerHTML;
+      // Replace the empty HARDCODED_DB_URL with the actual URL
+      const baked = src.replace(
+        /const HARDCODED_DB_URL = '[^']*';/,
+        `const HARDCODED_DB_URL = '${url}';`
+      );
+      // Trigger download
+      const blob = new Blob([baked], { type: 'text/html' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'Shadrack.html';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      const st = document.getElementById('bakeStatus');
+      if (st) {
+        st.textContent = '✓ Downloaded! Replace your hosted file with this new version — all visitors will auto-sync.';
+        st.style.color = '#4caf82';
+        st.style.display = 'block';
+        setTimeout(() => { st.style.display = 'none'; }, 6000);
+      }
     }
 
     function disconnectCloud() {
