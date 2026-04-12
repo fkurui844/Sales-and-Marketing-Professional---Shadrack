@@ -720,23 +720,38 @@
   <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
   <script>
     // ── Google Apps Script Web App URL ──
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyAUmpzXLJXeBUyChI5YkBGAtM2TMJntf60QAomx4LiMOBdP6R6qUyqSPj9Q72ge1j3/exec';
-    const SERVICES_KEY   = 'soluken_services';
-    const PROJECTS_KEY   = 'soluken_projects';
-    const SETTINGS_KEY   = 'soluken_settings';
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyWxzCo8NBaVTJ46mLQWupfr25wocIRUXfsx0-KMUDGHXcCeCJu8YTb_bcf7J-hiHfv/exec';
+    const SETTINGS_KEY = 'soluken_settings';
 
     // ── Dynamic sheet → nav/section config ──
-    // Add entries here if new sheets are added to the Apps Script SHEETS config.
-    // Each sheet key maps to { label shown in nav, anchor id of section, section element id }
-    const SHEET_NAV_CONFIG = {
-      services: { label: 'Services',  anchor: '#services',  sectionId: 'services' },
-      projects: { label: 'Projects',  anchor: '#projects',  sectionId: 'projects' },
-    };
+    // This is now populated automatically from the _registry sheet returned by the API.
+    // The admin NEVER needs to edit this file — just add rows to _registry in Google Sheets.
+    //
+    // Shape: { key: { label, anchor, sectionId } }
+    let SHEET_NAV_CONFIG = {};
 
     // Track which sheets currently have data so we can remove nav items when data is gone
     let _activeSheets = new Set();
 
-    // Rebuild the nav dynamically based on which sheets have data
+    // Cached generic sheet data: { key: [ ...rows ] }
+    let _sheetData = {};
+
+    // ── Update nav config from registry rows ──
+    function applyRegistry(registryRows) {
+      if (!Array.isArray(registryRows)) return;
+      SHEET_NAV_CONFIG = {};
+      registryRows.forEach(r => {
+        if (!r.key) return;
+        const sectionId = r.sectionId || r.key;
+        SHEET_NAV_CONFIG[r.key] = {
+          label     : r.navLabel  || r.key,
+          anchor    : '#' + sectionId,
+          sectionId : sectionId
+        };
+      });
+    }
+
+    // ── Rebuild nav dynamically based on which sheets have data ──
     function renderNav(activeKeys) {
       const navLinks = document.getElementById('navLinks');
       if (!navLinks) return;
@@ -749,7 +764,7 @@
         li => li.querySelector('a[href="#process"]')
       );
 
-      // Insert a nav item for each active sheet in config order
+      // Insert a nav item for each active sheet in registry order
       Object.entries(SHEET_NAV_CONFIG).forEach(([key, cfg]) => {
         if (!activeKeys.has(key)) return;
         const li = document.createElement('li');
@@ -758,7 +773,6 @@
         if (approachItem) {
           navLinks.insertBefore(li, approachItem);
         } else {
-          // fallback: append before last item (Get In Touch)
           const last = navLinks.querySelector('.nav-cta')?.parentElement;
           if (last) navLinks.insertBefore(li, last);
           else navLinks.appendChild(li);
@@ -785,36 +799,80 @@
       document.body.classList.remove('nav-open');
     }
 
-
     // ── Helpers ──
-    function getServices()  { try { return JSON.parse(localStorage.getItem(SERVICES_KEY)) || []; } catch(e){ return []; } }
-    function getProjects()  { try { return JSON.parse(localStorage.getItem(PROJECTS_KEY)) || []; } catch(e){ return []; } }
-    function getSettings()  { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch(e){ return {}; } }
+    function getSettings() { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch(e){ return {}; } }
+    function getSheetData(key) { return _sheetData[key] || []; }
 
     // ══ RENDER SERVICES ON PAGE ══
     function renderServicesSection(){
       const grid = document.getElementById('servicesGrid');
       if(!grid) return;
-      const services = getServices();
+      const services = getSheetData('services');
       grid.innerHTML = services.map(s => `
-        <div class="wwd-card reveal visible" data-svc-id="${s.id}">
+        <div class="wwd-card reveal visible" data-svc-id="${s.id || ''}">
           <div class="wwd-icon" style="${s.icon ? 'font-size:2rem;height:52px;display:flex;align-items:center;' : ''}">
             ${s.icon ? s.icon : (s.svg || '')}
           </div>
-          <h3 class="wwd-title">${escHtml(s.title)}</h3>
-          <p class="wwd-desc">${escHtml(s.desc)}</p>
+          <h3 class="wwd-title">${escHtml(s.title || '')}</h3>
+          <p class="wwd-desc">${escHtml(s.desc || '')}</p>
         </div>`).join('');
+    }
+
+    // ══ RENDER ANY GENERIC SHEET as cards ══
+    // For sheets that don't have a dedicated renderer, display all columns
+    // as a simple card grid — admins see their data immediately without extra code.
+    function renderGenericSection(key) {
+      const cfg = SHEET_NAV_CONFIG[key];
+      if (!cfg) return;
+      const sectionId = cfg.sectionId;
+
+      // Create section element if it doesn't already exist in the DOM
+      let section = document.getElementById(sectionId);
+      if (!section) {
+        section = document.createElement('section');
+        section.id = sectionId;
+        section.style.background = 'var(--navy-mid)';
+        section.innerHTML = `
+          <div class="section-header reveal">
+            <p class="section-tag">${escHtml(cfg.label)}</p>
+            <h2 class="section-title"><em>${escHtml(cfg.label)}</em></h2>
+            <div class="section-divider"></div>
+          </div>
+          <div id="${sectionId}Grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2rem;max-width:1100px;margin:0 auto;"></div>`;
+        // Insert before the footer
+        const footer = document.querySelector('footer');
+        if (footer) footer.parentNode.insertBefore(section, footer);
+      }
+
+      const grid = document.getElementById(sectionId + 'Grid');
+      if (!grid) return;
+
+      const rows = getSheetData(key);
+      if (!rows.length) { section.style.display = 'none'; return; }
+
+      section.style.display = '';
+      grid.innerHTML = rows.map(row => {
+        // Use 'name' or 'title' as heading, 'desc' or 'description' as body
+        const heading = row.name || row.title || '';
+        const sub     = row.client ? `<p style="font-size:0.82rem;color:var(--gold-light);margin-bottom:0.8rem;">${escHtml(row.client)}${row.year?' · '+escHtml(row.year):''}</p>` : '';
+        const body    = row.desc || row.description || '';
+        const tag     = row.tag || row.category || '';
+        return `
+          <div style="background:var(--navy);border:1px solid var(--divider);padding:2rem;border-radius:2px;transition:border-color 0.3s;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--divider)'">
+            ${tag ? `<span style="font-size:0.7rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);font-weight:500;">${escHtml(tag)}</span>` : ''}
+            ${heading ? `<h3 style="font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:400;color:var(--cream);margin:0.6rem 0 0.3rem;">${escHtml(heading)}</h3>` : ''}
+            ${sub}
+            ${body ? `<p style="font-size:0.87rem;line-height:1.8;color:var(--cream-dim);">${escHtml(body)}</p>` : ''}
+          </div>`;
+      }).join('');
     }
 
 
 
-
-
-
     function renderProjectsSection(){
-      const projects=getProjects();
-      const grid=document.getElementById('projectsGrid');
-      const empty=document.getElementById('projectsEmpty');
+      const projects = getSheetData('projects');
+      const grid  = document.getElementById('projectsGrid');
+      const empty = document.getElementById('projectsEmpty');
       if(!grid) return;
       if(!projects.length){
         grid.innerHTML='';
@@ -825,7 +883,7 @@
       grid.innerHTML=projects.map(p=>`
         <div style="background:var(--navy);border:1px solid var(--divider);padding:2rem;border-radius:2px;transition:border-color 0.3s;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--divider)'">
           ${p.tag?`<span style="font-size:0.7rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);font-weight:500;">${escHtml(p.tag)}</span>`:''}
-          <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:400;color:var(--cream);margin:0.6rem 0 0.3rem;">${escHtml(p.name)}</h3>
+          <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:400;color:var(--cream);margin:0.6rem 0 0.3rem;">${escHtml(p.name||'')}</h3>
           ${p.client?`<p style="font-size:0.82rem;color:var(--gold-light);margin-bottom:0.8rem;">${escHtml(p.client)}${p.year?' · '+escHtml(p.year):''}</p>`:''}
           ${p.desc?`<p style="font-size:0.87rem;line-height:1.8;color:var(--cream-dim);">${escHtml(p.desc)}</p>`:''}
         </div>`).join('');
@@ -890,53 +948,57 @@
         const all = await res.json();
         if (!all || all.error) { _syncRetries++; if(_syncRetries >= _maxRetries) stopSyncPolling(); return; }
         _syncRetries = 0;
-        let changed = false;
 
-        // Services: array of {id,title,desc,icon,svg}
-        if (Array.isArray(all.services) && all.services.length) {
-          localStorage.setItem(SERVICES_KEY, JSON.stringify(all.services));
-          _activeSheets.add('services');
-          changed = true;
-        } else {
-          // Sheet is empty or removed — clear it
-          localStorage.removeItem(SERVICES_KEY);
-          _activeSheets.delete('services');
-          changed = true;
+        // ── 1. Update nav config from registry (returned as all._registry) ──
+        if (Array.isArray(all._registry)) {
+          applyRegistry(all._registry);
         }
 
-        // Projects: array of {id,name,client,year,desc,tag}
-        if (Array.isArray(all.projects) && all.projects.length) {
-          localStorage.setItem(PROJECTS_KEY, JSON.stringify(all.projects));
-          _activeSheets.add('projects');
-          changed = true;
-        } else {
-          localStorage.removeItem(PROJECTS_KEY);
-          _activeSheets.delete('projects');
-          changed = true;
-        }
+        // ── 2. Process every key returned by the API ──
+        // Built-in keys (settings, custom) are handled separately; all others are generic sheets.
+        Object.keys(all).forEach(key => {
+          if (key === '_registry') return; // already handled
 
-        // Settings: array of {key,value} → convert to object
-        if (Array.isArray(all.settings) && all.settings.length) {
-          const obj = {};
-          all.settings.forEach(r => { if(r.key) obj[r.key] = r.value || ''; });
-          localStorage.setItem(SETTINGS_KEY, JSON.stringify(obj));
-          changed = true;
-        }
+          if (key === 'settings') {
+            if (Array.isArray(all.settings) && all.settings.length) {
+              const obj = {};
+              all.settings.forEach(r => { if(r.key) obj[r.key] = r.value || ''; });
+              localStorage.setItem(SETTINGS_KEY, JSON.stringify(obj));
+            }
+            return;
+          }
 
-        // Custom variables: array of {key,label,value,type}
-        if (Array.isArray(all.custom) && all.custom.length) {
-          localStorage.setItem('soluken_custom', JSON.stringify(all.custom));
-          applyCustomVars(all.custom);
-          changed = true;
-        }
+          if (key === 'custom') {
+            if (Array.isArray(all.custom) && all.custom.length) {
+              applyCustomVars(all.custom);
+            }
+            return;
+          }
 
-        if (changed) {
-          renderNav(_activeSheets);
-          renderServicesSection();
-          renderProjectsSection();
-          applySettings();
-          showSyncPulse();
-        }
+          // Generic sheet — store and track active state
+          if (Array.isArray(all[key]) && all[key].length) {
+            _sheetData[key] = all[key];
+            _activeSheets.add(key);
+          } else {
+            delete _sheetData[key];
+            _activeSheets.delete(key);
+          }
+        });
+
+        // ── 3. Re-render everything ──
+        renderNav(_activeSheets);
+        renderServicesSection();
+        renderProjectsSection();
+
+        // Render any extra sheets discovered via registry
+        Object.keys(SHEET_NAV_CONFIG).forEach(key => {
+          if (key === 'services' || key === 'projects') return; // already have dedicated renderers
+          renderGenericSection(key);
+        });
+
+        applySettings();
+        showSyncPulse();
+
       } catch(e) {
         _syncRetries++;
         if (_syncRetries >= _maxRetries) stopSyncPolling();
@@ -984,15 +1046,15 @@
 
     // ── Init on load ──
     document.addEventListener('DOMContentLoaded', () => {
-      // Hide all dynamic sections until cloud data confirms they have content
-      Object.values(SHEET_NAV_CONFIG).forEach(cfg => {
-        const s = document.getElementById(cfg.sectionId);
+      // Hide known dynamic sections until cloud data confirms they have content.
+      // Unknown new sections start hidden too (they don't exist in the DOM yet).
+      ['services', 'projects'].forEach(id => {
+        const s = document.getElementById(id);
         if (s) s.style.display = 'none';
       });
       renderNav(_activeSheets);
-      renderServicesSection();
-      renderProjectsSection();
       applySettings();
+      // loadFromCloud discovers the registry, then renders everything
       loadFromCloud().then(startSyncPolling);
     });
     document.getElementById('year').textContent = new Date().getFullYear();
