@@ -891,6 +891,11 @@
           <button class="btn-cancel" style="color:#e05c5c;border-color:#e05c5c;" onclick="resetAllData()">Reset All Data</button>
         </div>
         <p id="settingsSaved" style="color:#4caf82;font-size:0.82rem;margin-top:0.8rem;display:none;">✓ Settings saved and synced to cloud.</p>
+        <p id="firebaseRulesWarning" style="color:#e8a23a;font-size:0.8rem;margin-top:0.5rem;display:none;line-height:1.6;">
+          ⚠ Firebase returned 403 — changes are saved locally only.<br>
+          Fix: Go to <strong>Firebase Console → Realtime Database → Rules</strong> and set:<br>
+          <code style="background:var(--navy-light);padding:2px 6px;border-radius:3px;font-size:0.76rem;">{".read": true, ".write": true}</code>
+        </p>
 
       </div>
 
@@ -1287,19 +1292,23 @@
       const url = getDbUrl();
       if (!url) return;
       try {
-        await fetch(`${url}/soluken/${key}.json`, {
+        const res = await fetch(`${url}/soluken/${key}.json`, {
           method: 'PUT',
+          mode: 'cors',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
-      } catch(e) { console.warn('Cloud sync write error:', e); }
+        if ((res.status === 401 || res.status === 403) && typeof showFirebaseRulesWarning === 'function') {
+          showFirebaseRulesWarning();
+        }
+      } catch(e) { /* silent — network issues shouldn't break the admin UI */ }
     }
 
     async function cloudDelete(key) {
       const url = getDbUrl();
       if (!url) return;
       try {
-        await fetch(`${url}/soluken/${key}.json`, { method: 'DELETE' });
+        await fetch(`${url}/soluken/${key}.json`, { method: 'DELETE', mode: 'cors' });
       } catch(e) {}
     }
 
@@ -1310,25 +1319,34 @@
       return Object.values(v).filter(x => x !== null && x !== undefined);
     }
 
+    let _syncRetries = 0;
+    const _maxRetries = 5;
+
     async function loadFromCloud() {
       const url = getDbUrl();
       if (!url) return;
       try {
-        // Cache-bust so browsers always get fresh data
-        const res = await fetch(`${url}/soluken.json?_=${Date.now()}`);
+        const res = await fetch(`${url}/soluken.json?_=${Date.now()}`, {
+          method: 'GET',
+          mode: 'cors',
+          cache: 'no-store'
+        });
+        if (res.status === 401 || res.status === 403) {
+          // Firebase rules are blocking — stop polling silently
+          stopSyncPolling();
+          return;
+        }
         if (!res.ok) return;
         const all = await res.json();
         if (!all) return;
+        _syncRetries = 0; // reset on success
         let changed = false;
-
         if (all.services != null) {
-          const svcs = toArray(all.services);
-          localStorage.setItem(SERVICES_KEY, JSON.stringify(svcs));
+          localStorage.setItem(SERVICES_KEY, JSON.stringify(toArray(all.services)));
           changed = true;
         }
         if (all.projects != null) {
-          const prjs = toArray(all.projects);
-          localStorage.setItem(PROJECTS_KEY, JSON.stringify(prjs));
+          localStorage.setItem(PROJECTS_KEY, JSON.stringify(toArray(all.projects)));
           changed = true;
         }
         if (all.settings != null) {
@@ -1341,7 +1359,11 @@
           applySettings();
           showSyncPulse();
         }
-      } catch(e) { console.warn('Cloud sync load error:', e); }
+      } catch(e) {
+        // Network error — retry with backoff, then give up silently
+        _syncRetries++;
+        if (_syncRetries >= _maxRetries) stopSyncPolling();
+      }
     }
 
     // Brief gold dot pulse in nav when fresh cloud data lands
@@ -1373,6 +1395,12 @@
       }
     }
 
+
+
+    function showFirebaseRulesWarning() {
+      const el = document.getElementById('firebaseRulesWarning');
+      if (el) { el.style.display = 'block'; }
+    }
 
     // ── Utility ──
     function escHtml(str){ const d=document.createElement('div'); d.appendChild(document.createTextNode(str||'')); return d.innerHTML; }
