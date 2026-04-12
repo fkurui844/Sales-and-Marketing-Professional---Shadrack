@@ -1278,20 +1278,38 @@
       if(!projects.length){
         grid.innerHTML='';
         if(empty) empty.style.display='block';
-        // Keep section visible so nav link still works; show "coming soon"
         if(section) section.style.display='';
         return;
       }
 
       if(empty) empty.style.display='none';
-      if(section) section.style.display=''; // always show when data exists
+      if(section) section.style.display='';
+
+      // Helper: find a value from an object by trying multiple possible key names
+      function pick(p, ...keys) {
+        for (const k of keys) {
+          if (p[k] !== undefined && p[k] !== null && p[k] !== '') return p[k];
+        }
+        // Also try lowercase + no spaces version of all keys
+        const norm = k => k.toLowerCase().replace(/\s+/g,'');
+        const pNorm = {};
+        Object.keys(p).forEach(k => { pNorm[norm(k)] = p[k]; });
+        for (const k of keys) {
+          const v = pNorm[norm(k)];
+          if (v !== undefined && v !== null && v !== '') return v;
+        }
+        return '';
+      }
 
       grid.innerHTML=projects.map(p=>{
-        const name   = p['Project Tittle'] || p.name        || '';
-        const desc   = p['Description Text'] || p.desc      || '';
-        const tag    = p['Category label']   || p.tag       || '';
-        const client = p['Client Name']      || p.client    || '';
-        const year   = p['Year completed']   || p.year      || '';
+        // Log first row keys to console to help diagnose any remaining issues
+        if (projects.indexOf(p) === 0) console.log('[Projects] row keys:', Object.keys(p), '| values:', p);
+
+        const name   = pick(p, 'Project Tittle', 'Project Title', 'projecttittle', 'projecttitle', 'name', 'title');
+        const desc   = pick(p, 'Description Text', 'descriptiontext', 'description', 'desc');
+        const tag    = pick(p, 'Category label', 'Category Label', 'categorylabel', 'category', 'tag');
+        const client = pick(p, 'Client Name', 'clientname', 'client');
+        const year   = pick(p, 'Year completed', 'Year Completed', 'yearcompleted', 'year');
         return `
         <div style="background:var(--navy);border:1px solid var(--divider);padding:2.5rem 2rem;border-radius:2px;position:relative;overflow:hidden;transition:background 0.3s,transform 0.3s,border-color 0.3s;"
           onmouseover="this.style.background='var(--navy-light)';this.style.transform='translateY(-3px)';this.querySelector('.proj-bar').style.transform='scaleX(1)'"
