@@ -744,10 +744,23 @@
         if (!r.key) return;
         const sectionId = r.sectionId || r.key;
         SHEET_NAV_CONFIG[r.key] = {
-          label     : r.navLabel  || r.key,
+          label     : r.navLabel  || (r.key.charAt(0).toUpperCase() + r.key.slice(1)),
           anchor    : '#' + sectionId,
           sectionId : sectionId
         };
+      });
+    }
+
+    // ── Ensure SHEET_NAV_CONFIG has an entry for every active sheet ──
+    // Called just before renderNav so no sheet with data is ever missing from the nav.
+    function ensureNavConfigForActiveSheets(activeKeys) {
+      const KNOWN_SECTION_IDS = { services: 'services', projects: 'projects' };
+      activeKeys.forEach(key => {
+        if (!SHEET_NAV_CONFIG[key]) {
+          const sectionId = KNOWN_SECTION_IDS[key] || key;
+          const label = key.charAt(0).toUpperCase() + key.slice(1);
+          SHEET_NAV_CONFIG[key] = { label, anchor: '#' + sectionId, sectionId };
+        }
       });
     }
 
@@ -949,15 +962,28 @@
         if (!all || all.error) { _syncRetries++; if(_syncRetries >= _maxRetries) stopSyncPolling(); return; }
         _syncRetries = 0;
 
-        // ── 1. Update nav config from registry (returned as all._registry) ──
-        if (Array.isArray(all._registry)) {
+        // ── 1. Update nav config from registry ──
+        // If the server returns _registry (new Code.gs), use it.
+        // If not (old Code.gs), auto-infer nav config from whatever data keys came back.
+        if (Array.isArray(all._registry) && all._registry.length) {
           applyRegistry(all._registry);
+        } else {
+          // Fallback: build SHEET_NAV_CONFIG from any data keys that are not built-ins
+          const BUILTIN_KEYS = new Set(['settings', 'custom', '_registry']);
+          Object.keys(all).forEach(key => {
+            if (BUILTIN_KEYS.has(key)) return;
+            if (!SHEET_NAV_CONFIG[key]) {
+              // Capitalise first letter as label, use key as sectionId
+              const label = key.charAt(0).toUpperCase() + key.slice(1);
+              SHEET_NAV_CONFIG[key] = { label, anchor: '#' + key, sectionId: key };
+            }
+          });
         }
 
         // ── 2. Process every key returned by the API ──
-        // Built-in keys (settings, custom) are handled separately; all others are generic sheets.
+        const BUILTIN_KEYS = new Set(['settings', 'custom', '_registry']);
         Object.keys(all).forEach(key => {
-          if (key === '_registry') return; // already handled
+          if (key === '_registry') return;
 
           if (key === 'settings') {
             if (Array.isArray(all.settings) && all.settings.length) {
@@ -975,7 +1001,7 @@
             return;
           }
 
-          // Generic sheet — store and track active state
+          // Data sheet — store and track active state
           if (Array.isArray(all[key]) && all[key].length) {
             _sheetData[key] = all[key];
             _activeSheets.add(key);
@@ -986,13 +1012,15 @@
         });
 
         // ── 3. Re-render everything ──
+        // Safety net: ensure every active sheet has a nav config entry
+        ensureNavConfigForActiveSheets(_activeSheets);
         renderNav(_activeSheets);
         renderServicesSection();
         renderProjectsSection();
 
-        // Render any extra sheets discovered via registry
+        // Render any extra sheets discovered via registry or auto-inferred
         Object.keys(SHEET_NAV_CONFIG).forEach(key => {
-          if (key === 'services' || key === 'projects') return; // already have dedicated renderers
+          if (key === 'services' || key === 'projects') return;
           renderGenericSection(key);
         });
 
